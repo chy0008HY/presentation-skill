@@ -53,6 +53,11 @@ If `deck_style`/`compliance` are omitted, current behavior remains:
 - `deck_style.page_system`: preset-owned body-page grammar (`clinical-rail`,
   `board-ledger`, `editorial-field`, `command-canvas`, `lab-plate`, or
   `investor-thesis`)
+- `deck_style.structural_motif`: preset-owned geometry identity used to keep
+  related page systems from collapsing into the same rails or corner chrome
+- `metadata.renderer_role_systems_v1`: resolved composition grammar with
+  renderer-real title, section, evidence, comparison, data, decision, and
+  references system IDs plus the narrative arc and grid contract
 - `deck_style.emoji_mode`: `none`
 - `deck_style.research_visual_mode`: `false`
 - `deck_style.header_mode`: preset treatment (`bar`, `stack`, `eyebrow`, or
@@ -61,7 +66,8 @@ If `deck_style`/`compliance` are omitted, current behavior remains:
   (`auto`, `left-accent`, `split-rule`, `title-rule`, `side-rail`,
   `top-bottom-rule`, or `plain`)
 - `deck_style.title_layout`: preset treatment (`split-hero`, `lab-plate`,
-  `command-center`, `poster`, `masthead`, or `light-atlas`)
+  `command-center`, `poster`, `masthead`, `light-atlas`, `broadsheet`, or
+  `telemetry-board`)
 - `deck_style.title_motif`: preset treatment (`orbit`, `network`, `editorial`, or `none`)
 - `deck_style.section_motif`: preset treatment (`rail-dots` or `none`)
 - `deck_style.timeline_mode`: preset treatment (`rail-cards`, `staggered`,
@@ -96,6 +102,12 @@ If `deck_style`/`compliance` are omitted, current behavior remains:
 - `visual_density`: `low | medium | high`
 - `page_system`: stable body-page frame shared across the deck. Keep one
   coherent page system unless a section intentionally changes visual grammar.
+- `structural_motif`: stable preset-owned geometry inside the page system.
+  Prefer the preset default; override only when intentionally recomposing the
+  complete structural contract.
+- `metadata.renderer_role_systems_v1`: normal-workflow composition contract.
+  Keep its role-system IDs coherent; explicit slide variants may adapt to the
+  evidence without replacing the complete grammar.
 - `emoji_mode`: `none | selective`
 - `research_visual_mode`: boolean. Use `true` when a deck should actively use
   source-backed images/figures and attribution, usually after running
@@ -128,7 +140,7 @@ If `deck_style`/`compliance` are omitted, current behavior remains:
   accent rule, for example `accent_secondary`.
 - `title_layout`: optional cover archetype override. Supported values:
   `split-hero`, `lab-plate`, `command-center`, `poster`, `masthead`,
-  `light-atlas`. Prefer preset defaults unless the design brief needs a
+  `light-atlas`, `broadsheet`. Prefer preset defaults unless the design brief needs a
   deliberate cover change.
 - `title_motif`: optional cover motif override. Supported values:
   `orbit`, `network`, `editorial`, `none`.

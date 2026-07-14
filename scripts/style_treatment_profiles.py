@@ -8,6 +8,7 @@ import json
 from typing import Any
 
 from style_reference_catalog import preset_style_reference
+from taste_grammar_catalog import renderer_role_systems_for_preset
 
 
 PROFILE_VERSION = "deck_preset_treatment_profiles_v1"
@@ -19,7 +20,7 @@ SUPPORTED_HEADER_VARIANTS = [
     "top-bottom-rule",
     "plain",
 ]
-SUPPORTED_TITLE_LAYOUTS = ["split-hero", "lab-plate", "command-center", "poster", "masthead", "light-atlas"]
+SUPPORTED_TITLE_LAYOUTS = ["split-hero", "lab-plate", "command-center", "poster", "masthead", "light-atlas", "broadsheet"]
 SUPPORTED_FOOTERS = ["standard", "source-line"]
 SUPPORTED_CHART_TREATMENTS = [
     "standard",
@@ -35,8 +36,24 @@ SUPPORTED_FIGURE_TABLE_TREATMENTS = ["figure-first", "table-first", "stats-strip
 SUPPORTED_PAGE_SYSTEMS = ["clinical-rail", "board-ledger", "editorial-field", "command-canvas", "lab-plate", "investor-thesis"]
 SUPPORTED_IMAGE_SIDEBAR_MODES = ["analysis-rail", "evidence-mosaic", "editorial-atlas"]
 SUPPORTED_COMPARISON_MODES = ["open-columns", "scorecard"]
+SUPPORTED_STRUCTURAL_MOTIFS = [
+    "clinical-stages",
+    "board-index",
+    "field-notes",
+    "thesis-window",
+    "workflow-brackets",
+    "case-margin",
+    "journal-folio",
+    "editorial-rule",
+    "open-coordinate",
+    "proof-stage",
+    "incident-rail",
+    "signal-grid",
+    "assay-register",
+]
 RENDERER_TREATMENT_FIELDS = (
     "page_system",
+    "structural_motif",
     "title_layout",
     "footer_mode",
     "chart_treatment",
@@ -71,6 +88,22 @@ PAGE_SYSTEM_BY_PRESET = {
     "sunset-investor": "investor-thesis",
 }
 
+STRUCTURAL_MOTIF_BY_PRESET = {
+    "executive-clinical": "clinical-stages",
+    "data-heavy-boardroom": "board-index",
+    "forest-research": "field-notes",
+    "sunset-investor": "thesis-window",
+    "lavender-ops": "workflow-brackets",
+    "warm-terracotta": "case-margin",
+    "paper-journal": "journal-folio",
+    "editorial-minimal": "editorial-rule",
+    "arctic-minimal": "open-coordinate",
+    "bold-startup-narrative": "proof-stage",
+    "charcoal-safety": "incident-rail",
+    "midnight-neon": "signal-grid",
+    "lab-report": "assay-register",
+}
+
 IMAGE_SIDEBAR_MODES_BY_PAGE_SYSTEM = {
     "clinical-rail": ["evidence-mosaic", "analysis-rail"],
     "board-ledger": ["analysis-rail", "evidence-mosaic"],
@@ -89,8 +122,32 @@ COMPARISON_MODES_BY_PAGE_SYSTEM = {
     "investor-thesis": ["scorecard", "open-columns"],
 }
 
+IMAGE_SIDEBAR_MODES_BY_PRESET = {
+    "executive-clinical": ["evidence-mosaic", "analysis-rail"],
+    "data-heavy-boardroom": ["analysis-rail", "evidence-mosaic"],
+    "forest-research": ["editorial-atlas", "evidence-mosaic"],
+    "sunset-investor": ["evidence-mosaic", "editorial-atlas"],
+    "lavender-ops": ["analysis-rail", "evidence-mosaic"],
+    "warm-terracotta": ["editorial-atlas", "analysis-rail"],
+    "paper-journal": ["editorial-atlas", "analysis-rail"],
+    "editorial-minimal": ["editorial-atlas", "analysis-rail"],
+    "arctic-minimal": ["editorial-atlas", "analysis-rail"],
+    "bold-startup-narrative": ["evidence-mosaic", "editorial-atlas"],
+    "charcoal-safety": ["analysis-rail", "evidence-mosaic"],
+    "midnight-neon": ["evidence-mosaic", "analysis-rail"],
+    "lab-report": ["evidence-mosaic", "analysis-rail"],
+}
+
+COMPARISON_MODES_BY_PRESET = {
+    preset: (["open-columns", "scorecard"] if preset in {
+        "forest-research", "paper-journal", "editorial-minimal", "arctic-minimal"
+    } else ["scorecard", "open-columns"])
+    for preset in STRUCTURAL_MOTIF_BY_PRESET
+}
+
 
 BASE_MIX_MATRIX = {
+    "structural_motif_pool": list(SUPPORTED_STRUCTURAL_MOTIFS),
     "header_variant_pool": list(SUPPORTED_HEADER_VARIANTS),
     "title_layout_pool": ["split-hero", "lab-plate", "masthead", "light-atlas"],
     "section_motif_pool": ["rail-dots", "plain", "none"],
@@ -120,7 +177,7 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
         "heading_accent_combo": "lab-clean report heading with compact rules and page/source footer",
         "style_mix_matrix": {
             "header_variant_pool": ["left-accent", "split-rule", "title-rule", "side-rail", "top-bottom-rule", "plain"],
-            "title_layout_pool": ["split-hero", "lab-plate", "masthead", "light-atlas"],
+            "title_layout_pool": ["lab-plate", "split-hero", "masthead", "light-atlas"],
             "footer_pool": ["source-line", "standard"],
             "chart_treatment_pool": ["threshold-band", "minimal", "facts-right"],
             "table_treatment_pool": ["compact-ledger", "readout-sidecar", "standard"],
@@ -159,8 +216,8 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
             "chart_treatment_pool": ["facts-right", "threshold-band", "facts-below", "minimal"],
             "table_treatment_pool": ["compact-ledger", "readout-sidecar", "decision-matrix"],
             "figure_table_treatment_pool": ["table-first", "stats-strip", "figure-first"],
-            "stats_mode_pool": ["feature-left", "tiles", "policy-bands"],
-            "matrix_mode_pool": ["cards", "open-quadrants"],
+            "stats_mode_pool": ["policy-bands", "feature-left", "tiles"],
+            "matrix_mode_pool": ["open-quadrants", "cards"],
             "summary_callout_mode_pool": ["default", "lab-box"],
         },
         "best_for": ["dashboards", "board memos", "analytics reviews"],
@@ -177,8 +234,8 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
             "chart_treatment_pool": ["threshold-band", "facts-right", "minimal"],
             "table_treatment_pool": ["readout-sidecar", "compact-ledger", "standard"],
             "figure_table_treatment_pool": ["figure-first", "table-first", "image-sidebar"],
-            "stats_mode_pool": ["policy-bands", "tiles", "feature-left"],
-            "matrix_mode_pool": ["open-quadrants", "cards"],
+            "stats_mode_pool": ["feature-left", "policy-bands", "tiles"],
+            "matrix_mode_pool": ["cards", "open-quadrants"],
             "summary_callout_mode_pool": ["lab-box", "default"],
         },
         "best_for": ["clinical updates", "translational research", "executive evidence reviews"],
@@ -210,9 +267,9 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
             "header_variant_pool": ["plain", "split-rule", "title-rule", "left-accent"],
             "title_layout_pool": ["light-atlas", "masthead", "split-hero"],
             "footer_pool": ["standard", "source-line"],
-            "chart_treatment_pool": ["sparse-wide", "minimal", "standard"],
-            "table_treatment_pool": ["journal-grid", "compact-ledger", "standard"],
-            "figure_table_treatment_pool": ["figure-first", "image-sidebar", "table-first"],
+            "chart_treatment_pool": ["minimal", "sparse-wide", "standard"],
+            "table_treatment_pool": ["standard", "journal-grid", "compact-ledger"],
+            "figure_table_treatment_pool": ["image-sidebar", "figure-first", "table-first"],
             "stats_mode_pool": ["tiles", "feature-left", "policy-bands"],
             "matrix_mode_pool": ["open-quadrants", "cards"],
             "summary_callout_mode_pool": ["default", "lab-box"],
@@ -226,9 +283,9 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
         "heading_accent_combo": "editorial masthead with title rule or plain report body",
         "style_mix_matrix": {
             "header_variant_pool": ["title-rule", "plain", "split-rule", "left-accent"],
-            "title_layout_pool": ["masthead", "light-atlas", "poster"],
+            "title_layout_pool": ["broadsheet", "masthead", "light-atlas"],
             "footer_pool": ["standard", "source-line"],
-            "chart_treatment_pool": ["sparse-wide", "minimal", "facts-below"],
+            "chart_treatment_pool": ["minimal", "sparse-wide", "facts-below"],
             "table_treatment_pool": ["journal-grid", "readout-sidecar", "standard"],
             "figure_table_treatment_pool": ["image-sidebar", "figure-first", "table-first"],
             "stats_mode_pool": ["feature-left", "tiles", "policy-bands"],
@@ -244,7 +301,7 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
         "heading_accent_combo": "operations heading with split rules and restrained labels",
         "style_mix_matrix": {
             "header_variant_pool": ["split-rule", "left-accent", "plain", "top-bottom-rule"],
-            "title_layout_pool": ["split-hero", "light-atlas", "masthead"],
+            "title_layout_pool": ["command-center", "split-hero", "light-atlas", "masthead"],
             "footer_pool": ["standard", "source-line"],
             "chart_treatment_pool": ["facts-right", "threshold-band", "standard"],
             "table_treatment_pool": ["readout-sidecar", "compact-ledger", "standard"],
@@ -262,7 +319,7 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
         "heading_accent_combo": "large narrative heading with left accent, side rail, or title rule",
         "style_mix_matrix": {
             "header_variant_pool": ["left-accent", "title-rule", "side-rail", "split-rule"],
-            "title_layout_pool": ["split-hero", "poster", "command-center"],
+            "title_layout_pool": ["poster", "split-hero", "command-center"],
             "footer_pool": ["standard", "source-line"],
             "chart_treatment_pool": ["hero-stat", "facts-below", "facts-right"],
             "table_treatment_pool": ["decision-matrix", "readout-sidecar", "compact-ledger"],
@@ -286,7 +343,7 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
             "table_treatment_pool": ["compact-ledger", "decision-matrix", "readout-sidecar"],
             "figure_table_treatment_pool": ["stats-strip", "figure-first", "image-sidebar"],
             "stats_mode_pool": ["feature-left", "tiles", "policy-bands"],
-            "matrix_mode_pool": ["cards", "open-quadrants"],
+            "matrix_mode_pool": ["open-quadrants", "cards"],
             "summary_callout_mode_pool": ["default", "lab-box"],
         },
         "best_for": ["fundraising", "market stories", "commercial strategy"],
@@ -336,9 +393,9 @@ PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
             "header_variant_pool": ["side-rail", "split-rule", "title-rule", "plain"],
             "title_layout_pool": ["command-center", "poster", "split-hero"],
             "footer_pool": ["standard", "source-line"],
-            "chart_treatment_pool": ["threshold-band", "facts-right", "standard"],
-            "table_treatment_pool": ["decision-matrix", "readout-sidecar", "compact-ledger"],
-            "figure_table_treatment_pool": ["stats-strip", "image-sidebar", "figure-first"],
+            "chart_treatment_pool": ["facts-right", "threshold-band", "standard"],
+            "table_treatment_pool": ["readout-sidecar", "decision-matrix", "compact-ledger"],
+            "figure_table_treatment_pool": ["image-sidebar", "stats-strip", "figure-first"],
             "stats_mode_pool": ["tiles", "feature-left", "policy-bands"],
             "matrix_mode_pool": ["cards", "open-quadrants"],
             "summary_callout_mode_pool": ["default", "lab-box"],
@@ -390,6 +447,10 @@ def renderer_treatment_defaults_from_mix(preset: str, mix: dict[str, Any]) -> di
         footer = "source-line"
     return {
         "page_system": _first_pool_value(mix.get("page_system_pool"), PAGE_SYSTEM_BY_PRESET.get(key, "clinical-rail")),
+        "structural_motif": _first_pool_value(
+            mix.get("structural_motif_pool"),
+            STRUCTURAL_MOTIF_BY_PRESET.get(key, "clinical-stages"),
+        ),
         "title_layout": _first_pool_value(mix.get("title_layout_pool"), "split-hero"),
         "footer_mode": footer,
         "chart_treatment": _first_pool_value(mix.get("chart_treatment_pool"), "standard"),
@@ -413,9 +474,15 @@ def preset_treatment_profile(preset: str) -> dict[str, Any]:
     )
     page_system = PAGE_SYSTEM_BY_PRESET.get(key, "clinical-rail")
     mix["page_system_pool"] = [page_system]
-    mix["image_sidebar_mode_pool"] = list(IMAGE_SIDEBAR_MODES_BY_PAGE_SYSTEM[page_system])
-    mix["comparison_mode_pool"] = list(COMPARISON_MODES_BY_PAGE_SYSTEM[page_system])
+    mix["structural_motif_pool"] = [STRUCTURAL_MOTIF_BY_PRESET.get(key, "clinical-stages")]
+    mix["image_sidebar_mode_pool"] = list(
+        IMAGE_SIDEBAR_MODES_BY_PRESET.get(key, IMAGE_SIDEBAR_MODES_BY_PAGE_SYSTEM[page_system])
+    )
+    mix["comparison_mode_pool"] = list(
+        COMPARISON_MODES_BY_PRESET.get(key, COMPARISON_MODES_BY_PAGE_SYSTEM[page_system])
+    )
     renderer_defaults = renderer_treatment_defaults_from_mix(key, mix)
+    renderer_role_systems = renderer_role_systems_for_preset(key)
     profile = {
         "profile_version": PROFILE_VERSION,
         "style_preset": key,
@@ -430,6 +497,7 @@ def preset_treatment_profile(preset: str) -> dict[str, Any]:
         "renderer_treatment_fields": list(RENDERER_TREATMENT_FIELDS),
         "renderer_treatment_defaults": renderer_defaults,
         "renderer_treatment_signature": renderer_treatment_summary(renderer_defaults)["signature"],
+        "renderer_role_systems_v1": renderer_role_systems,
         "best_for": list(override.get("best_for", ["general presentations", "structured reports"])),
         "avoid": list(override.get("avoid", ["unsupported renderer treatments", "unreadable text"])),
     }

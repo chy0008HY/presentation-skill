@@ -676,6 +676,7 @@ const PALETTE_LIBRARY = {
 const PRESET_TREATMENTS = {
   'executive-clinical': {
     page_system: 'clinical-rail',
+    structural_motif: 'clinical-stages',
     header_mode: 'bar',
     title_layout: 'split-hero',
     title_motif: 'orbit',
@@ -686,9 +687,15 @@ const PRESET_TREATMENTS = {
     cards_mode: 'feature-left',
     image_sidebar_mode: 'evidence-mosaic',
     comparison_mode: 'scorecard',
+    chart_treatment: 'threshold-band',
+    table_treatment: 'readout-sidecar',
+    figure_table_treatment: 'figure-first',
+    summary_callout_mode: 'lab-box',
+    footer_mode: 'source-line',
   },
   'data-heavy-boardroom': {
     page_system: 'board-ledger',
+    structural_motif: 'board-index',
     header_mode: 'eyebrow',
     title_layout: 'split-hero',
     title_motif: 'network',
@@ -699,9 +706,15 @@ const PRESET_TREATMENTS = {
     cards_mode: 'feature-left',
     image_sidebar_mode: 'analysis-rail',
     comparison_mode: 'scorecard',
+    chart_treatment: 'facts-right',
+    table_treatment: 'compact-ledger',
+    figure_table_treatment: 'table-first',
+    summary_callout_mode: 'default',
+    footer_mode: 'source-line',
   },
   'forest-research': {
     page_system: 'lab-plate',
+    structural_motif: 'field-notes',
     header_mode: 'stack',
     title_layout: 'light-atlas',
     title_motif: 'editorial',
@@ -712,9 +725,15 @@ const PRESET_TREATMENTS = {
     cards_mode: 'staggered-row',
     image_sidebar_mode: 'editorial-atlas',
     comparison_mode: 'open-columns',
+    chart_treatment: 'sparse-wide',
+    table_treatment: 'journal-grid',
+    figure_table_treatment: 'figure-first',
+    summary_callout_mode: 'lab-box',
+    footer_mode: 'source-line',
   },
   'sunset-investor': {
     page_system: 'investor-thesis',
+    structural_motif: 'thesis-window',
     header_mode: 'bar',
     title_layout: 'poster',
     title_motif: 'orbit',
@@ -725,9 +744,15 @@ const PRESET_TREATMENTS = {
     cards_mode: 'feature-left',
     image_sidebar_mode: 'evidence-mosaic',
     comparison_mode: 'scorecard',
+    chart_treatment: 'hero-stat',
+    table_treatment: 'compact-ledger',
+    figure_table_treatment: 'stats-strip',
+    summary_callout_mode: 'default',
+    footer_mode: 'standard',
   },
   'lavender-ops': {
     page_system: 'command-canvas',
+    structural_motif: 'workflow-brackets',
     header_mode: 'eyebrow',
     title_layout: 'command-center',
     title_motif: 'network',
@@ -738,58 +763,95 @@ const PRESET_TREATMENTS = {
     cards_mode: 'staggered-row',
     image_sidebar_mode: 'analysis-rail',
     comparison_mode: 'scorecard',
+    chart_treatment: 'facts-right',
+    table_treatment: 'readout-sidecar',
+    figure_table_treatment: 'table-first',
+    summary_callout_mode: 'default',
+    footer_mode: 'standard',
   },
   'warm-terracotta': {
     page_system: 'editorial-field',
+    structural_motif: 'case-margin',
     header_mode: 'stack',
     title_layout: 'masthead',
     title_motif: 'editorial',
     section_motif: 'rail-dots',
     timeline_mode: 'bands',
     matrix_mode: 'open-quadrants',
-    stats_mode: 'policy-bands',
+    stats_mode: 'feature-left',
     cards_mode: 'staggered-row',
     image_sidebar_mode: 'editorial-atlas',
-    comparison_mode: 'open-columns',
+    comparison_mode: 'scorecard',
+    chart_treatment: 'facts-below',
+    table_treatment: 'journal-grid',
+    figure_table_treatment: 'image-sidebar',
+    summary_callout_mode: 'default',
+    footer_mode: 'standard',
   },
   'paper-journal': {
     page_system: 'editorial-field',
+    structural_motif: 'journal-folio',
     header_mode: 'stack',
     title_layout: 'masthead',
     title_motif: 'editorial',
     section_motif: 'rail-dots',
     timeline_mode: 'open-events',
+    matrix_mode: 'open-quadrants',
+    stats_mode: 'tiles',
+    cards_mode: 'staggered-row',
     title_subtitle_color: 'D9CBA8',
     section_subtitle_color: 'EFE5D0',
     image_sidebar_mode: 'editorial-atlas',
     comparison_mode: 'open-columns',
+    chart_treatment: 'sparse-wide',
+    table_treatment: 'journal-grid',
+    figure_table_treatment: 'figure-first',
+    summary_callout_mode: 'lab-box',
+    footer_mode: 'source-line',
   },
   'editorial-minimal': {
     page_system: 'editorial-field',
+    structural_motif: 'editorial-rule',
     header_mode: 'stack',
-    title_layout: 'masthead',
+    title_layout: 'broadsheet',
     title_motif: 'editorial',
     section_motif: 'rail-dots',
     timeline_mode: 'open-events',
+    matrix_mode: 'open-quadrants',
+    stats_mode: 'feature-left',
+    cards_mode: 'staggered-row',
     title_subtitle_color: 'E5E7EB',
     section_subtitle_color: 'E5E7EB',
     image_sidebar_mode: 'editorial-atlas',
     comparison_mode: 'open-columns',
+    chart_treatment: 'minimal',
+    table_treatment: 'journal-grid',
+    figure_table_treatment: 'image-sidebar',
+    summary_callout_mode: 'default',
+    footer_mode: 'standard',
   },
   'arctic-minimal': {
     page_system: 'clinical-rail',
+    structural_motif: 'open-coordinate',
     header_mode: 'eyebrow',
     title_layout: 'light-atlas',
     title_motif: 'orbit',
     section_motif: 'rail-dots',
     matrix_mode: 'open-quadrants',
-    stats_mode: 'policy-bands',
+    stats_mode: 'tiles',
+    cards_mode: 'staggered-row',
     image_sidebar_mode: 'editorial-atlas',
     comparison_mode: 'open-columns',
+    chart_treatment: 'minimal',
+    table_treatment: 'standard',
+    figure_table_treatment: 'image-sidebar',
+    summary_callout_mode: 'default',
+    footer_mode: 'standard',
   },
   'bold-startup-narrative': {
     page_system: 'investor-thesis',
-    header_mode: 'bar',
+    structural_motif: 'proof-stage',
+    header_mode: 'eyebrow',
     title_layout: 'poster',
     title_motif: 'orbit',
     section_motif: 'rail-dots',
@@ -797,22 +859,38 @@ const PRESET_TREATMENTS = {
     cards_mode: 'feature-left',
     image_sidebar_mode: 'evidence-mosaic',
     comparison_mode: 'scorecard',
+    chart_treatment: 'hero-stat',
+    table_treatment: 'decision-matrix',
+    figure_table_treatment: 'stats-strip',
+    stats_mode: 'feature-left',
+    matrix_mode: 'cards',
+    summary_callout_mode: 'default',
+    footer_mode: 'standard',
   },
   'charcoal-safety': {
     page_system: 'board-ledger',
+    structural_motif: 'incident-rail',
     header_mode: 'bar',
     title_layout: 'command-center',
     title_motif: 'network',
     section_motif: 'rail-dots',
-    stats_mode: 'feature-left',
+    stats_mode: 'policy-bands',
+    matrix_mode: 'cards',
+    cards_mode: 'staggered-row',
     timeline_mode: 'bands',
     title_subtitle_color: 'D1D5DB',
     section_subtitle_color: 'E5E7EB',
     image_sidebar_mode: 'analysis-rail',
     comparison_mode: 'scorecard',
+    chart_treatment: 'threshold-band',
+    table_treatment: 'decision-matrix',
+    figure_table_treatment: 'stats-strip',
+    summary_callout_mode: 'default',
+    footer_mode: 'standard',
   },
   'midnight-neon': {
     page_system: 'command-canvas',
+    structural_motif: 'signal-grid',
     header_mode: 'bar',
     title_layout: 'command-center',
     title_motif: 'network',
@@ -821,9 +899,17 @@ const PRESET_TREATMENTS = {
     cards_mode: 'feature-left',
     image_sidebar_mode: 'evidence-mosaic',
     comparison_mode: 'scorecard',
+    chart_treatment: 'facts-right',
+    table_treatment: 'readout-sidecar',
+    figure_table_treatment: 'image-sidebar',
+    stats_mode: 'tiles',
+    matrix_mode: 'cards',
+    summary_callout_mode: 'default',
+    footer_mode: 'standard',
   },
   'lab-report': {
     page_system: 'lab-plate',
+    structural_motif: 'assay-register',
     header_mode: 'lab-clean',
     header_variant: 'auto',
     header_variants: ['left-accent', 'split-rule', 'title-rule', 'side-rail', 'top-bottom-rule', 'plain'],
@@ -840,12 +926,130 @@ const PRESET_TREATMENTS = {
     section_subtitle_color: 'D6E4F0',
     image_sidebar_mode: 'evidence-mosaic',
     comparison_mode: 'scorecard',
+    chart_treatment: 'threshold-band',
+    table_treatment: 'compact-ledger',
+    figure_table_treatment: 'figure-first',
+    stats_mode: 'tiles',
+    matrix_mode: 'cards',
   },
 };
+
+const ROLE_SYSTEMS_BY_GRAMMAR = {
+  'consulting-answer-pyramid': {
+    title: 'title-answer-ledger',
+    section: 'section-claim-chapters',
+    evidence: 'evidence-proof-stack',
+    comparison: 'comparison-option-scorecard',
+    data: 'data-executive-exhibit',
+    decision: 'decision-owner-commitment',
+    references: 'references-executive-notes',
+  },
+  'scientific-evidence-plate': {
+    title: 'title-study-plate',
+    section: 'section-method-result',
+    evidence: 'evidence-multipanel-plate',
+    comparison: 'comparison-control-cohort',
+    data: 'data-assay-readout',
+    decision: 'decision-evidence-threshold',
+    references: 'references-scientific-register',
+  },
+  'clinical-care-pathway': {
+    title: 'title-clinical-status',
+    section: 'section-care-stage',
+    evidence: 'evidence-clinical-cohort',
+    comparison: 'comparison-care-options',
+    data: 'data-clinical-outcomes',
+    decision: 'decision-care-gate',
+    references: 'references-clinical-evidence',
+  },
+  'editorial-spread': {
+    title: 'title-editorial-masthead',
+    section: 'section-editorial-folio',
+    evidence: 'evidence-captioned-feature',
+    comparison: 'comparison-editorial-columns',
+    data: 'data-annotated-graphic',
+    decision: 'decision-editorial-takeaway',
+    references: 'references-editorial-notes',
+  },
+  'investor-thesis-stage': {
+    title: 'title-investor-thesis',
+    section: 'section-thesis-stage',
+    evidence: 'evidence-market-proof',
+    comparison: 'comparison-market-position',
+    data: 'data-unit-economics',
+    decision: 'decision-investment-ask',
+    references: 'references-investor-diligence',
+  },
+  'operations-grid': {
+    title: 'title-operations-state',
+    section: 'section-operating-cycle',
+    evidence: 'evidence-operations-signal',
+    comparison: 'comparison-plan-actual',
+    data: 'data-operations-grid',
+    decision: 'decision-control-action',
+    references: 'references-operations-log',
+  },
+  'policy-public-docket': {
+    title: 'title-public-question',
+    section: 'section-policy-docket',
+    evidence: 'evidence-public-record',
+    comparison: 'comparison-policy-options',
+    data: 'data-public-impact',
+    decision: 'decision-policy-recommendation',
+    references: 'references-public-docket',
+  },
+  'technical-telemetry-canvas': {
+    title: 'title-telemetry-state',
+    section: 'section-system-layer',
+    evidence: 'evidence-signal-trace',
+    comparison: 'comparison-architecture-tradeoff',
+    data: 'data-telemetry-canvas',
+    decision: 'decision-remediation-gate',
+    references: 'references-technical-register',
+  },
+};
+
+const GRAMMAR_BY_PRESET = {
+  'arctic-minimal': 'consulting-answer-pyramid',
+  'data-heavy-boardroom': 'consulting-answer-pyramid',
+  'lab-report': 'scientific-evidence-plate',
+  'forest-research': 'scientific-evidence-plate',
+  'executive-clinical': 'clinical-care-pathway',
+  'editorial-minimal': 'editorial-spread',
+  'paper-journal': 'editorial-spread',
+  'bold-startup-narrative': 'investor-thesis-stage',
+  'sunset-investor': 'investor-thesis-stage',
+  'lavender-ops': 'operations-grid',
+  'charcoal-safety': 'operations-grid',
+  'warm-terracotta': 'policy-public-docket',
+  'midnight-neon': 'technical-telemetry-canvas',
+};
+
+for (const [presetName, grammarId] of Object.entries(GRAMMAR_BY_PRESET)) {
+  if (!PRESET_TREATMENTS[presetName]) continue;
+  PRESET_TREATMENTS[presetName].composition_grammar = grammarId;
+  PRESET_TREATMENTS[presetName].role_systems = Object.assign({}, ROLE_SYSTEMS_BY_GRAMMAR[grammarId]);
+}
 
 const STYLE_ENUM_VALUES = {
   visual_density: new Set(['low', 'medium', 'high']),
   page_system: new Set(['clinical-rail', 'board-ledger', 'editorial-field', 'command-canvas', 'lab-plate', 'investor-thesis', 'none']),
+  structural_motif: new Set([
+    'clinical-stages',
+    'board-index',
+    'field-notes',
+    'thesis-window',
+    'workflow-brackets',
+    'case-margin',
+    'journal-folio',
+    'editorial-rule',
+    'open-coordinate',
+    'proof-stage',
+    'incident-rail',
+    'signal-grid',
+    'assay-register',
+    'none',
+  ]),
   header_mode: new Set(['bar', 'stack', 'eyebrow', 'lab-clean', 'lab-card']),
   header_variant: new Set([
     'auto',
@@ -863,6 +1067,8 @@ const STYLE_ENUM_VALUES = {
     'poster',
     'masthead',
     'light-atlas',
+    'broadsheet',
+    'telemetry-board',
   ]),
   title_motif: new Set(['orbit', 'network', 'editorial', 'none']),
   section_motif: new Set(['rail-dots', 'numbered-tabs', 'plain', 'none']),
@@ -885,12 +1091,14 @@ const STYLE_ENUM_VALUES = {
   figure_table_treatment: new Set(['figure-first', 'table-first', 'stats-strip', 'image-sidebar']),
   image_sidebar_mode: new Set(['analysis-rail', 'evidence-mosaic', 'editorial-atlas']),
   comparison_mode: new Set(['open-columns', 'scorecard']),
+  composition_grammar: new Set(Object.keys(ROLE_SYSTEMS_BY_GRAMMAR)),
 };
 
 const ROOT_STYLE_ENUM_KEYS = Object.keys(STYLE_ENUM_VALUES);
 const SLIDE_STYLE_ENUM_KEYS = [
   'header_mode',
   'page_system',
+  'structural_motif',
   'header_variant',
   'title_layout',
   'timeline_mode',
@@ -904,7 +1112,10 @@ const SLIDE_STYLE_ENUM_KEYS = [
   'figure_table_treatment',
   'image_sidebar_mode',
   'comparison_mode',
+  'composition_grammar',
 ];
+
+const ROLE_SYSTEM_KEYS = ['title', 'section', 'evidence', 'comparison', 'data', 'decision', 'references'];
 
 function sortedSetValues(values) {
   return Array.from(values).sort().join(', ');
@@ -963,6 +1174,19 @@ function validateStyleTreatmentPayload(payload, pathLabel, keys) {
     canonicalStyleValue(payload, key, pathLabel);
   });
   canonicalHeaderVariants(payload, pathLabel);
+  if (Object.prototype.hasOwnProperty.call(payload, 'role_systems')) {
+    if (!payload.role_systems || typeof payload.role_systems !== 'object' || Array.isArray(payload.role_systems)) {
+      throw new Error(`${pathLabel}.role_systems must be an object when present.`);
+    }
+    for (const [role, systemId] of Object.entries(payload.role_systems)) {
+      if (!ROLE_SYSTEM_KEYS.includes(role)) {
+        throw new Error(`${pathLabel}.role_systems has unsupported role '${role}'.`);
+      }
+      if (typeof systemId !== 'string' || !systemId.trim()) {
+        throw new Error(`${pathLabel}.role_systems.${role} must be a non-empty string.`);
+      }
+    }
+  }
 }
 
 function validateOutlineStyleTreatments(data) {
@@ -978,6 +1202,7 @@ function applyDeckStyle(basePreset, data, presetName) {
   const preset = Object.assign({}, basePreset);
   const treatment = PRESET_TREATMENTS[String(presetName || '').trim().toLowerCase()] || {};
   Object.assign(preset, treatment);
+  preset.role_systems = Object.assign({}, treatment.role_systems || {});
   if (!preset.header_variant) {
     preset.header_variant = 'auto';
   }
@@ -988,6 +1213,25 @@ function applyDeckStyle(basePreset, data, presetName) {
   const deckStyle = (data && data.deck_style && typeof data.deck_style === 'object')
     ? data.deck_style
     : {};
+  const metadataRoleSystems = data && data.metadata && typeof data.metadata === 'object'
+    && data.metadata.renderer_role_systems_v1 && typeof data.metadata.renderer_role_systems_v1 === 'object'
+    ? data.metadata.renderer_role_systems_v1
+    : {};
+  const deckRoleSystems = deckStyle.renderer_role_systems_v1 && typeof deckStyle.renderer_role_systems_v1 === 'object'
+    ? deckStyle.renderer_role_systems_v1
+    : metadataRoleSystems;
+  if (deckRoleSystems.composition_grammar_id) {
+    preset.composition_grammar = String(deckRoleSystems.composition_grammar_id).trim().toLowerCase();
+  }
+  const contractRoles = {};
+  for (const role of ROLE_SYSTEM_KEYS) {
+    const value = deckRoleSystems[`${role}_system_id`];
+    if (typeof value === 'string' && value.trim()) contractRoles[role] = value.trim().toLowerCase();
+  }
+  if (Object.keys(contractRoles).length) {
+    preset.role_systems = Object.assign({}, preset.role_systems, contractRoles);
+    preset.renderer_role_systems_v1 = Object.assign({}, deckRoleSystems);
+  }
   const paletteKey = String(deckStyle.palette_key || '').trim().toLowerCase();
   const palette = PALETTE_LIBRARY[paletteKey];
   if (palette) {
@@ -1011,6 +1255,7 @@ function applyDeckStyle(basePreset, data, presetName) {
   for (const key of [
     'header_mode',
     'page_system',
+    'structural_motif',
     'header_variant',
     'title_layout',
     'title_motif',
@@ -1026,9 +1271,13 @@ function applyDeckStyle(basePreset, data, presetName) {
     'figure_table_treatment',
     'image_sidebar_mode',
     'comparison_mode',
+    'composition_grammar',
   ]) {
     const value = canonicalStyleValue(deckStyle, key, 'deck_style');
     if (value) preset[key] = value;
+  }
+  if (deckStyle.role_systems && typeof deckStyle.role_systems === 'object' && !Array.isArray(deckStyle.role_systems)) {
+    preset.role_systems = Object.assign({}, preset.role_systems, deckStyle.role_systems);
   }
   const headerVariants = canonicalHeaderVariants(deckStyle, 'deck_style');
   if (headerVariants.length) {
@@ -1478,7 +1727,17 @@ async function main() {
   console.log(`Wrote ${produced} (${normalized.length} slides, preset=${args.stylePreset})`);
 }
 
-main().catch((err) => {
-  console.error(`Error: ${err && err.stack ? err.stack : err}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(`Error: ${err && err.stack ? err.stack : err}`);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  PRESET_TREATMENTS,
+  ROLE_SYSTEMS_BY_GRAMMAR,
+  GRAMMAR_BY_PRESET,
+  STYLE_ENUM_VALUES,
+  applyDeckStyle,
+};

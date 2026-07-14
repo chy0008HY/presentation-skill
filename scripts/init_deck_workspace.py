@@ -591,7 +591,22 @@ def _starter_outline(
         "emoji_mode": "none",
     }
     for key, value in (atom_context.get("deck_style_delta") or {}).items():
-        if key in {"chart_treatment", "table_treatment", "header_mode", "footer_mode", "visual_density"}:
+        if key in {
+            "page_system",
+            "structural_motif",
+            "title_layout",
+            "chart_treatment",
+            "table_treatment",
+            "figure_table_treatment",
+            "header_mode",
+            "footer_mode",
+            "stats_mode",
+            "matrix_mode",
+            "summary_callout_mode",
+            "image_sidebar_mode",
+            "comparison_mode",
+            "visual_density",
+        }:
             deck_style[key] = value
     if font_pair:
         deck_style["font_pair"] = font_pair
@@ -612,6 +627,7 @@ def _starter_outline(
                 "style_metric_profile": reference.get("style_metric_profile"),
             },
             "style_atom_context": atom_context,
+            "renderer_role_systems_v1": atom_context.get("renderer_role_systems_v1") or {},
         },
         "slides": [
             {
@@ -1096,6 +1112,21 @@ def _design_brief_stub(title: str, style_preset: str, *, user_prompt: str = "") 
         for item in _story_list(playbook.get("preferred_variants"))
         if str(item).strip()
     ]
+    composition_grammar_route = (
+        atom_context.get("composition_grammar_route")
+        if isinstance(atom_context.get("composition_grammar_route"), dict)
+        else {}
+    )
+    primary_composition_grammar = (
+        composition_grammar_route.get("primary")
+        if isinstance(composition_grammar_route.get("primary"), dict)
+        else {}
+    )
+    renderer_role_systems = (
+        atom_context.get("renderer_role_systems_v1")
+        if isinstance(atom_context.get("renderer_role_systems_v1"), dict)
+        else treatment_profile.get("renderer_role_systems_v1") or {}
+    )
     return {
         "topic": title,
         "content_maturity": "serious/work",
@@ -1138,6 +1169,9 @@ def _design_brief_stub(title: str, style_preset: str, *, user_prompt: str = "") 
             "style_atom_composition": style_atom_composition,
             "style_atom_preferred_variants": atom_context.get("preferred_variants") or [],
             "style_atom_narrative_arc": atom_context.get("narrative_arc") or [],
+            "composition_grammar_route": composition_grammar_route,
+            "renderer_role_systems_v1": renderer_role_systems,
+            "style_execution_plan": atom_context.get("style_execution_plan") or {},
             "style_mix_matrix": treatment_profile["style_mix_matrix"],
         },
         "style_atom_composition": style_atom_composition,
@@ -1153,6 +1187,25 @@ def _design_brief_stub(title: str, style_preset: str, *, user_prompt: str = "") 
         },
         "structure_strategy": {
             "primary_scaffold": "open editorial content slides with measured headers",
+            "composition_grammar": {
+                "grammar_id": primary_composition_grammar.get("grammar_id"),
+                "lane": primary_composition_grammar.get("lane"),
+                "rhythm_pattern": primary_composition_grammar.get("rhythm_pattern") or [],
+                "role_variant_map": primary_composition_grammar.get("role_variant_map") or {},
+                "renderer_bias": primary_composition_grammar.get("renderer_bias") or {},
+                "renderer_role_systems_v1": renderer_role_systems,
+                "narrative_arc": primary_composition_grammar.get("narrative_arc") or {},
+                "density": primary_composition_grammar.get("density") or {},
+                "grid": primary_composition_grammar.get("grid") or {},
+                "reading_path": primary_composition_grammar.get("reading_path") or [],
+                "preferred_role_variants": primary_composition_grammar.get("preferred_role_variants") or {},
+                "invariant_moves": primary_composition_grammar.get("invariant_moves") or [],
+                "forbidden_moves": primary_composition_grammar.get("forbidden_moves") or [],
+                "distinctive_moves": primary_composition_grammar.get("distinctive_moves") or [],
+                "max_consecutive_same_variant": primary_composition_grammar.get(
+                    "max_consecutive_same_variant", 2
+                ),
+            },
             "repeated_elements": ["shared margins", "consistent source/footer treatment", "limited accent rails"],
             "allowed_variations": preferred_variants
             or [
@@ -1338,6 +1391,7 @@ def _style_contract(
             "starter_outline_version": "style_reference_starter_outline_v1",
         },
         "style_atom_context": atom_context,
+        "renderer_role_systems_v1": atom_context.get("renderer_role_systems_v1") or {},
     }
     if reference_pptx:
         contract["reference"] = _reference_summary(reference_pptx)

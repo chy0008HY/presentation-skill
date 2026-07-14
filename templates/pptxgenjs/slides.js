@@ -80,6 +80,33 @@ function cleanHex(value, fallback) {
   return /^[0-9a-fA-F]{6}$/.test(raw) ? raw.toUpperCase() : String(fallback || '0F172A');
 }
 
+function colorLuminance(value) {
+  const hex = cleanHex(value, '0F172A');
+  const channels = [0, 2, 4].map((start) => parseInt(hex.slice(start, start + 2), 16) / 255);
+  const linear = channels.map((channel) => (
+    channel <= 0.03928
+      ? channel / 12.92
+      : Math.pow((channel + 0.055) / 1.055, 2.4)
+  ));
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+}
+
+function contrastRatio(foreground, background) {
+  const a = colorLuminance(foreground);
+  const b = colorLuminance(background);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+function firstReadableColor(background, candidates, minimumRatio = 4.5) {
+  const colors = candidates
+    .map((value) => String(value || '').replace(/^#/, '').trim())
+    .filter((value) => /^[0-9a-fA-F]{6}$/.test(value))
+    .map((value) => value.toUpperCase());
+  const passing = colors.find((color) => contrastRatio(color, background) >= minimumRatio);
+  if (passing) return passing;
+  return colors.sort((left, right) => contrastRatio(right, background) - contrastRatio(left, background))[0] || 'FFFFFF';
+}
+
 function darkSlideSubtitleColor(preset) {
   return cleanHex(
     preset.title_subtitle_color ||
@@ -496,8 +523,127 @@ function addBackgroundImage(slide, imagePath, preset) {
   }));
 }
 
+function compositionGrammar(preset, slideData = {}) {
+  return String(slideData.composition_grammar || preset.composition_grammar || '').trim().toLowerCase();
+}
+
+function roleSystem(preset, slideData, role) {
+  const local = slideData.role_systems && typeof slideData.role_systems === 'object'
+    ? slideData.role_systems
+    : {};
+  const deck = preset.role_systems && typeof preset.role_systems === 'object'
+    ? preset.role_systems
+    : {};
+  return String(local[role] || deck[role] || slideData.render_system_id || '').trim().toLowerCase();
+}
+
+function grammarFrameContract(preset, slideData = {}) {
+  const grammar = compositionGrammar(preset, slideData);
+  const contracts = {
+    'consulting-answer-pyramid': { left: 0.42, right: 0.42, top: 0.20, bottom: 0.30, grid: 12 },
+    'scientific-evidence-plate': { left: 0.50, right: 0.50, top: 0.30, bottom: 0.46, grid: 10 },
+    'clinical-care-pathway': { left: 0.72, right: 0.60, top: 0.22, bottom: 0.32, grid: 10 },
+    'editorial-spread': { left: 0.54, right: 0.54, top: 0.24, bottom: 0.34, grid: 6 },
+    'investor-thesis-stage': { left: 0.42, right: 0.56, top: 0.18, bottom: 0.34, grid: 12 },
+    'operations-grid': { left: 0.36, right: 0.36, top: 0.34, bottom: 0.48, grid: 12 },
+    'policy-public-docket': { left: 0.78, right: 0.46, top: 0.22, bottom: 0.38, grid: 10 },
+    'technical-telemetry-canvas': { left: 0.34, right: 0.78, top: 0.36, bottom: 0.38, grid: 16 },
+  };
+  return Object.assign({ grammar, left: MARGIN_X, right: MARGIN_X, top: 0.20, bottom: 0.30, grid: 12 }, contracts[grammar] || {});
+}
+
+function addGrammarFrame(slide, preset, slideData = {}) {
+  const frame = grammarFrameContract(preset, slideData);
+  if (!frame.grammar) return false;
+  const accent = cleanHex(preset.accent_primary, '1493A4');
+  const secondary = cleanHex(preset.accent_secondary, accent);
+  const line = cleanHex(preset.line, 'CBD5E1');
+  const muted = cleanHex(preset.text_muted, '64748B');
+  const addRule = (x, y, w, h, color, transparency = 0) => {
+    slide.addShape('rect', shapeOpts({
+      x, y, w, h,
+      fill: { color, transparency },
+      line: { color, transparency: 100, width: 0 },
+    }));
+  };
+
+  if (frame.grammar === 'consulting-answer-pyramid') {
+    addRule(0.42, 0.08, 2.10, 0.035, accent);
+    addRule(2.62, 0.08, SLIDE_W - 3.04, 0.012, line);
+    addRule(0.42, SLIDE_H - 0.48, SLIDE_W - 0.84, 0.018, line);
+    return true;
+  }
+  if (frame.grammar === 'scientific-evidence-plate') {
+    ['QUESTION', 'METHOD', 'RESULT', 'INTERPRET'].forEach((_label, idx) => {
+      const x = 0.50 + idx * 1.10;
+      addRule(x, 0.08, 0.92, 0.055, idx === 2 ? accent : line, idx === 2 ? 0 : 18);
+    });
+    addRule(0.50, SLIDE_H - 0.52, SLIDE_W - 1.00, 0.018, line);
+    addRule(0.50, SLIDE_H - 0.47, 1.62, 0.035, secondary);
+    return true;
+  }
+  if (frame.grammar === 'clinical-care-pathway') {
+    addRule(0.18, 0.82, 0.035, 5.78, accent);
+    [1.36, 2.84, 4.32, 5.80].forEach((y, idx) => {
+      slide.addShape('ellipse', shapeOpts({
+        x: 0.115, y, w: 0.16, h: 0.16,
+        fill: { color: idx === 2 ? secondary : preset.bg || 'FFFFFF' },
+        line: { color: idx === 2 ? secondary : accent, width: 0.85 },
+      }));
+    });
+    addRule(SLIDE_W - 0.24, 1.06, 0.035, 5.24, secondary, 8);
+    return true;
+  }
+  if (frame.grammar === 'editorial-spread') {
+    addRule(0.48, 0.12, SLIDE_W - 0.96, 0.014, line);
+    addRule(0.48, 0.18, 1.34, 0.028, accent);
+    addRule(0.48, 1.04, 0.018, 5.72, line);
+    addRule(SLIDE_W - 0.78, SLIDE_H - 0.46, 0.30, 0.018, accent);
+    return true;
+  }
+  if (frame.grammar === 'investor-thesis-stage') {
+    const progress = Number(slideData.progress_index || 3);
+    for (let idx = 0; idx < 6; idx += 1) {
+      addRule(0.42 + idx * 0.62, SLIDE_H - 0.48, 0.48, 0.045, idx < progress ? accent : line, idx < progress ? 0 : 20);
+    }
+    addRule(SLIDE_W - 0.18, 1.06, 0.18, 5.74, secondary);
+    return true;
+  }
+  if (frame.grammar === 'operations-grid') {
+    const widths = [1.72, 1.42, 1.42, 1.72];
+    let x = 0.36;
+    widths.forEach((w, idx) => {
+      addRule(x, 0.08, w, 0.11, idx === 1 ? accent : (idx === 2 ? secondary : line), idx > 1 ? 12 : 0);
+      x += w + 0.12;
+    });
+    addRule(0.36, SLIDE_H - 0.56, SLIDE_W - 0.72, 0.16, preset.surface || 'FFFFFF');
+    addRule(0.36, SLIDE_H - 0.56, 1.58, 0.16, accent, 6);
+    return true;
+  }
+  if (frame.grammar === 'policy-public-docket') {
+    addRule(0.12, 0.76, 0.42, 5.92, preset.surface || 'FFFFFF');
+    addRule(0.12, 0.76, 0.42, 0.68, accent);
+    [0, 1, 2, 3].forEach((idx) => addRule(0.19, 1.02 + idx * 1.14, 0.26, 0.035, idx === 0 ? secondary : line));
+    addRule(0.66, SLIDE_H - 0.48, SLIDE_W - 1.10, 0.018, line);
+    return true;
+  }
+  if (frame.grammar === 'technical-telemetry-canvas') {
+    [0.34, 2.10, 3.86, 5.62, 7.38].forEach((x, idx) => {
+      addRule(x, 0.07, 1.48, 0.12, idx === 2 ? accent : line, idx === 2 ? 0 : 16);
+    });
+    addRule(SLIDE_W - 0.52, 0.44, 0.32, 5.30, preset.surface || '111827', 12);
+    [1.10, 2.08, 3.06, 4.04, 5.02, 6.00].forEach((y, idx) => {
+      addRule(SLIDE_W - 0.46, y, 0.20, 0.018, idx === 3 ? secondary : line, idx === 3 ? 0 : 24);
+    });
+    return true;
+  }
+  return false;
+}
+
 function addPageSystemChrome(slide, preset, slideData) {
+  if (addGrammarFrame(slide, preset, slideData)) return;
   const system = String(slideData.page_system || preset.page_system || '').trim().toLowerCase();
+  const motif = String(slideData.structural_motif || preset.structural_motif || '').trim().toLowerCase();
   if (!system || system === 'none') return;
   const accent = cleanHex(preset.accent_primary, '1493A4');
   const secondary = cleanHex(preset.accent_secondary, accent);
@@ -510,6 +656,120 @@ function addPageSystemChrome(slide, preset, slideData) {
       line: { color, transparency: 100, width: 0 },
     }));
   };
+
+  // Preset-level structural motifs keep related page systems coherent without
+  // making every family share the same rails, rules, or corner furniture.
+  if (motif && motif !== 'none') {
+    if (motif === 'clinical-stages') {
+      addRule(0.16, 1.24, 0.025, 5.12, accent);
+      [1.56, 3.54, 5.52].forEach((y, idx) => {
+        slide.addShape('ellipse', shapeOpts({
+          x: 0.105, y, w: 0.135, h: 0.135,
+          fill: { color: idx === 1 ? secondary : preset.bg || 'FFFFFF' },
+          line: { color: idx === 1 ? secondary : accent, width: 0.8 },
+        }));
+        addRule(0.25, y + 0.055, 0.12 + idx * 0.04, 0.012, line, 12);
+      });
+      return;
+    }
+    if (motif === 'board-index') {
+      [0.88, 0.62, 0.36].forEach((w, idx) => {
+        addRule(SLIDE_W - 0.46 - w, 0.06 + idx * 0.09, w, 0.035, idx === 0 ? accent : line, idx * 10);
+      });
+      addRule(0.42, SLIDE_H - 0.16, SLIDE_W - 0.84, 0.018, line);
+      addRule(SLIDE_W - 3.32, SLIDE_H - 0.12, 2.90, 0.035, secondary);
+      return;
+    }
+    if (motif === 'field-notes') {
+      [1.48, 2.72, 3.96, 5.20].forEach((y, idx) => {
+        addRule(0.18, y, 0.12 + (idx % 2) * 0.09, 0.018, idx === 2 ? secondary : line);
+      });
+      addRule(0.18, 1.48, 0.018, 3.76, accent, 8);
+      addRule(0.42, SLIDE_H - 0.16, 1.70, 0.024, accent);
+      addRule(2.20, SLIDE_H - 0.16, 0.50, 0.024, secondary, 12);
+      return;
+    }
+    if (motif === 'thesis-window') {
+      addRule(SLIDE_W - 0.16, 1.02, 0.16, 5.96, accent);
+      addRule(SLIDE_W - 1.54, 1.02, 1.38, 0.055, secondary);
+      addRule(SLIDE_W - 1.54, 1.02, 0.025, 0.52, secondary);
+      addRule(SLIDE_W - 0.74, 1.30, 0.58, 0.018, line);
+      return;
+    }
+    if (motif === 'workflow-brackets') {
+      const corner = (x, y, flipX, flipY) => {
+        addRule(x + (flipX ? -0.38 : 0), y, 0.38, 0.025, accent, 10);
+        addRule(x, y + (flipY ? -0.38 : 0), 0.025, 0.38, accent, 10);
+      };
+      corner(0.22, 1.12, false, false);
+      corner(SLIDE_W - 0.22, 1.12, true, false);
+      corner(0.22, SLIDE_H - 0.30, false, true);
+      corner(SLIDE_W - 0.22, SLIDE_H - 0.30, true, true);
+      addRule(SLIDE_W / 2 - 0.72, SLIDE_H - 0.18, 1.44, 0.035, secondary);
+      return;
+    }
+    if (motif === 'case-margin') {
+      addRule(SLIDE_W - 0.32, 1.10, 0.025, 5.58, accent, 8);
+      [1.10, 3.64, 6.66].forEach((y, idx) => {
+        addRule(SLIDE_W - 0.72 - idx * 0.12, y, 0.42 + idx * 0.12, 0.022, idx === 1 ? secondary : line);
+      });
+      addRule(0.42, SLIDE_H - 0.20, 1.12, 0.045, secondary);
+      return;
+    }
+    if (motif === 'journal-folio') {
+      addRule(0.42, 0.13, SLIDE_W - 0.84, 0.016, line);
+      addRule(0.42, 0.19, 2.08, 0.024, accent);
+      addRule(SLIDE_W - 2.14, 0.19, 1.72, 0.024, secondary, 10);
+      addRule(SLIDE_W / 2 - 0.38, SLIDE_H - 0.14, 0.76, 0.016, line);
+      return;
+    }
+    if (motif === 'editorial-rule') {
+      addRule(0.34, 1.10, 0.018, 5.72, line);
+      addRule(0.30, 1.10, 0.10, 0.82, accent);
+      addRule(0.30, 6.42, 0.10, 0.40, secondary);
+      return;
+    }
+    if (motif === 'open-coordinate') {
+      addRule(0.22, 1.12, 0.54, 0.018, accent, 16);
+      addRule(0.22, 1.12, 0.018, 0.44, accent, 16);
+      addRule(SLIDE_W - 0.78, SLIDE_H - 0.30, 0.56, 0.018, line);
+      addRule(SLIDE_W - 0.24, SLIDE_H - 0.74, 0.018, 0.44, line);
+      return;
+    }
+    if (motif === 'proof-stage') {
+      addRule(0.42, 1.12, 0.92, 0.055, secondary);
+      addRule(0.42, 1.19, 0.34, 0.018, accent);
+      addRule(0, SLIDE_H - 0.16, SLIDE_W, 0.07, preset.bg_dark || '0B1220');
+      addRule(0, SLIDE_H - 0.16, 3.24, 0.07, accent);
+      return;
+    }
+    if (motif === 'incident-rail') {
+      addRule(0.16, 1.08, 0.085, 5.82, secondary);
+      addRule(0.16, 1.08, 0.62, 0.055, secondary);
+      [0.00, 0.28, 0.56].forEach((offset, idx) => {
+        addRule(SLIDE_W - 1.28 + offset, SLIDE_H - 0.18, 0.18, 0.035, idx === 1 ? secondary : line);
+      });
+      return;
+    }
+    if (motif === 'signal-grid') {
+      [0.00, 0.22, 0.44, 0.66].forEach((offset) => {
+        addRule(SLIDE_W - 0.88 + offset, 1.18, 0.012, 5.28, line, 56);
+      });
+      [1.18, 2.50, 3.82, 5.14, 6.46].forEach((y, idx) => {
+        addRule(SLIDE_W - 0.88, y, 0.68, 0.012, idx === 2 ? accent : line, idx === 2 ? 18 : 56);
+      });
+      addRule(0.22, SLIDE_H - 0.18, 1.36, 0.03, secondary);
+      return;
+    }
+    if (motif === 'assay-register') {
+      [0.72, 1.02, 1.32].forEach((x, idx) => addRule(x, 0.07, 0.18, 0.025, idx === 1 ? secondary : line));
+      addRule(MARGIN_X, SLIDE_H - 0.28, SLIDE_W - MARGIN_X * 2, 0.014, line);
+      [0.00, 0.08, 0.18, 0.31, 0.39, 0.55, 0.67].forEach((offset, idx) => {
+        addRule(MARGIN_X + offset, SLIDE_H - 0.25, 0.025, idx % 2 ? 0.07 : 0.11, idx === 3 ? secondary : accent);
+      });
+      return;
+    }
+  }
 
   if (system === 'clinical-rail') {
     addRule(0.15, 0.28, 0.035, 6.58, accent);
@@ -1474,15 +1734,6 @@ function renderTitleMasthead(pptx, slide, slideData, preset) {
       fill: 'FFFFFF',
       line: preset.line,
     });
-  } else {
-    slide.addShape('rect', shapeOpts({
-      x: 6.75,
-      y: 1.15,
-      w: 1.70,
-      h: 3.25,
-      fill: { color: secondary, transparency: 84 },
-      line: { color: secondary, transparency: 100, width: 0 },
-    }));
   }
 
   slide.addShape('rect', shapeOpts({
@@ -1492,6 +1743,90 @@ function renderTitleMasthead(pptx, slide, slideData, preset) {
     h: 0.06,
     fill: { color: secondary },
     line: { color: secondary, width: 0 },
+  }));
+  addTitleFooter(slide, preset, slideData, muted);
+  attachNotes(slide, slideData);
+}
+
+function renderTitleBroadsheet(pptx, slide, slideData, preset) {
+  paintBackground(slide, preset.bg || 'FFFFFF');
+  const heroPath = slideData.__heroPath;
+  const hasHero = heroPath && fs.existsSync(heroPath);
+  const titleText = safeText(slideData.title, 'Untitled Deck');
+  const subtitle = safeText(slideData.subtitle);
+  const textColor = cleanHex(preset.text || preset.text_primary, '0A0A0A');
+  const muted = cleanHex(preset.text_muted, '6B7280');
+  const accent = cleanHex(preset.accent_primary, 'D4461E');
+  const line = cleanHex(preset.line, 'E5E7EB');
+  const dividerX = 7.08;
+
+  slide.addShape('rect', shapeOpts({
+    x: MARGIN_X, y: 0.42, w: SLIDE_W - MARGIN_X * 2, h: 0.018,
+    fill: { color: textColor }, line: { color: textColor, width: 0 },
+  }));
+  slide.addShape('rect', shapeOpts({
+    x: MARGIN_X, y: 0.50, w: 1.05, h: 0.055,
+    fill: { color: accent }, line: { color: accent, width: 0 },
+  }));
+  addTitleKicker(slide, preset, slideData.kicker || 'EDITORIAL FIELD NOTE', {
+    x: MARGIN_X, y: 0.20, w: 3.4, h: 0.18, color: accent, fontSize: 8.2,
+  });
+
+  const sizing = titleTextSizing(titleText, 6.08, 43, 29);
+  slide.addText(titleText, textOpts({
+    x: MARGIN_X,
+    y: 1.14,
+    w: 6.08,
+    h: Math.max(1.72, sizing.titleH),
+    fontFace: preset.font_heading,
+    fontSize: sizing.titleFont,
+    bold: true,
+    color: textColor,
+    fit: 'shrink',
+  }));
+  slide.addShape('rect', shapeOpts({
+    x: dividerX, y: 1.10, w: 0.018, h: 4.72,
+    fill: { color: line }, line: { color: line, width: 0 },
+  }));
+  slide.addShape('rect', shapeOpts({
+    x: dividerX - 0.035, y: 1.10, w: 0.088, h: 0.82,
+    fill: { color: accent }, line: { color: accent, width: 0 },
+  }));
+
+  if (subtitle) {
+    slide.addText(subtitle, textOpts({
+      x: 7.42,
+      y: hasHero ? 1.18 : 3.02,
+      w: 2.08,
+      h: hasHero ? 0.92 : 1.38,
+      fontFace: preset.font_body,
+      fontSize: hasHero ? 13.5 : 12.5,
+      color: muted,
+      fit: 'shrink',
+    }));
+  }
+  if (hasHero) {
+    addHeroFrame(slide, heroPath, preset, { x: 7.42, y: 2.30, w: 2.08, h: 2.82 }, {
+      pad: 0.04,
+      fill: 'FFFFFF',
+      line,
+      lineWidth: 0.8,
+    });
+  } else {
+    [4.46, 4.88, 5.30].forEach((y, idx) => {
+      slide.addShape('rect', shapeOpts({
+        x: 7.42,
+        y,
+        w: 2.08 - idx * 0.28,
+        h: 0.018,
+        fill: { color: idx === 0 ? textColor : line },
+        line: { color: idx === 0 ? textColor : line, width: 0 },
+      }));
+    });
+  }
+  slide.addShape('rect', shapeOpts({
+    x: MARGIN_X, y: 5.82, w: 6.12, h: 0.018,
+    fill: { color: textColor }, line: { color: textColor, width: 0 },
   }));
   addTitleFooter(slide, preset, slideData, muted);
   attachNotes(slide, slideData);
@@ -1579,8 +1914,98 @@ function renderTitleLightAtlas(pptx, slide, slideData, preset) {
   attachNotes(slide, slideData);
 }
 
+function renderTitleTelemetryBoard(pptx, slide, slideData, preset) {
+  paintBackground(slide, preset.bg_dark || '07111F');
+  addGrammarFrame(slide, preset, slideData);
+  const title = safeText(slideData.title, 'System review');
+  const subtitle = safeText(slideData.subtitle);
+  const accent = cleanHex(preset.accent_primary, '22D3EE');
+  const secondary = cleanHex(preset.accent_secondary, 'F43F5E');
+  const surface = cleanHex(preset.surface, '111827');
+  const muted = darkSlideSubtitleColor(preset);
+
+  slide.addShape('rect', shapeOpts({
+    x: 0.42, y: 1.02, w: 1.72, h: 4.30,
+    fill: { color: surface, transparency: 4 },
+    line: { color: preset.line || '334155', width: 0.65 },
+  }));
+  slide.addText(safeText(slideData.kicker, 'SYSTEM STATUS'), textOpts({
+    x: 0.62, y: 1.28, w: 1.32, h: 0.24,
+    fontFace: preset.font_body, fontSize: 8, bold: true, color: accent,
+    charSpacing: 1.2, fit: 'shrink',
+  }));
+  slide.addText(safeText(slideData.status, 'OBSERVE'), textOpts({
+    x: 0.62, y: 1.78, w: 1.32, h: 0.72,
+    fontFace: preset.font_heading, fontSize: 24, bold: true, color: 'FFFFFF', fit: 'shrink',
+  }));
+  const telemetry = [
+    ['ENV', safeText(slideData.environment, 'PROD')],
+    ['WINDOW', safeText(slideData.window, '24H')],
+    ['STATE', safeText(slideData.severity, 'WATCH')],
+  ];
+  telemetry.forEach(([label, value], idx) => {
+    const y = 3.02 + idx * 0.66;
+    slide.addText(label, textOpts({
+      x: 0.62, y, w: 0.52, h: 0.16, fontFace: preset.font_body,
+      fontSize: 7.8, bold: true, color: muted, fit: 'shrink',
+    }));
+    slide.addText(value, textOpts({
+      x: 1.18, y: y - 0.02, w: 0.76, h: 0.20, fontFace: preset.font_body,
+      fontSize: 8.5, bold: true, color: idx === 2 ? secondary : 'FFFFFF', align: 'right', fit: 'shrink',
+    }));
+    slide.addShape('line', shapeOpts({
+      x: 0.62, y: y + 0.26, w: 1.32, h: 0,
+      line: { color: preset.line || '334155', width: 0.45, transparency: 20 },
+    }));
+  });
+
+  slide.addText(title, textOpts({
+    x: 2.58, y: 1.36, w: 6.72, h: 1.56,
+    fontFace: preset.font_heading, fontSize: 38, bold: true, color: 'FFFFFF', fit: 'shrink',
+  }));
+  if (subtitle) {
+    slide.addText(subtitle, textOpts({
+      x: 2.58, y: 3.18, w: 5.92, h: 0.72,
+      fontFace: preset.font_body, fontSize: 14, color: muted, fit: 'shrink',
+    }));
+  }
+  slide.addShape('rect', shapeOpts({
+    x: 2.58, y: 4.54, w: 6.48, h: 0.62,
+    fill: { color: surface, transparency: 2 },
+    line: { color: preset.line || '334155', width: 0.55 },
+  }));
+  ['SIGNAL', 'DEPENDENCY', 'ACTION'].forEach((label, idx) => {
+    slide.addText(label, textOpts({
+      x: 2.78 + idx * 2.02, y: 4.74, w: 1.62, h: 0.18,
+      fontFace: preset.font_body, fontSize: 7.8, bold: true,
+      color: idx === 1 ? secondary : accent, align: 'center', fit: 'shrink',
+    }));
+  });
+  addTitleFooter(slide, preset, slideData, muted);
+  attachNotes(slide, slideData);
+}
+
 function renderTitle(pptx, slide, slideData, preset) {
-  const layout = String(slideData.title_layout || preset.title_layout || 'split-hero')
+  const titleSystem = roleSystem(preset, slideData, 'title');
+  const roleLayout = {
+    'answer-cover': 'split-hero',
+    'title-answer-ledger': 'split-hero',
+    'evidence-cover': 'lab-plate',
+    'title-study-plate': 'lab-plate',
+    'care-dossier': 'light-atlas',
+    'title-clinical-status': 'light-atlas',
+    'editorial-cover': 'broadsheet',
+    'title-editorial-masthead': 'broadsheet',
+    'thesis-cover': 'poster',
+    'title-investor-thesis': 'poster',
+    'operating-cover': 'command-center',
+    'title-operations-state': 'command-center',
+    'docket-cover': 'masthead',
+    'title-public-question': 'masthead',
+    'telemetry-cover': 'telemetry-board',
+    'title-telemetry-state': 'telemetry-board',
+  }[titleSystem];
+  const layout = String(slideData.title_layout || roleLayout || preset.title_layout || 'split-hero')
     .trim()
     .toLowerCase();
   if (layout === 'lab-plate') {
@@ -1591,8 +2016,12 @@ function renderTitle(pptx, slide, slideData, preset) {
     renderTitlePoster(pptx, slide, slideData, preset);
   } else if (layout === 'masthead') {
     renderTitleMasthead(pptx, slide, slideData, preset);
+  } else if (layout === 'broadsheet') {
+    renderTitleBroadsheet(pptx, slide, slideData, preset);
   } else if (layout === 'light-atlas') {
     renderTitleLightAtlas(pptx, slide, slideData, preset);
+  } else if (layout === 'telemetry-board') {
+    renderTitleTelemetryBoard(pptx, slide, slideData, preset);
   } else {
     renderTitleSplit(pptx, slide, slideData, preset);
   }
@@ -1602,10 +2031,388 @@ function renderTitle(pptx, slide, slideData, preset) {
 // Section divider: full-bleed dark slide, oversized title, optional subtitle.
 // ---------------------------------------------------------------------------
 
+function renderRoleSection(slide, slideData, preset) {
+  const system = roleSystem(preset, slideData, 'section');
+  if (!system) return false;
+  const title = safeText(slideData.title, 'Section');
+  const subtitle = safeText(slideData.subtitle);
+  const accent = cleanHex(preset.accent_primary, '1493A4');
+  const secondary = cleanHex(preset.accent_secondary, accent);
+  const text = cleanHex(preset.text || preset.text_primary, '0F172A');
+  const muted = cleanHex(preset.text_muted, '64748B');
+  const dark = cleanHex(preset.bg_dark, '0B1220');
+  const surface = cleanHex(preset.surface, 'FFFFFF');
+
+  if (['answer-chapter', 'section-claim-chapters'].includes(system)) {
+    paintBackground(slide, preset.bg || 'FFFFFF');
+    addGrammarFrame(slide, preset, slideData);
+    slide.addText(safeText(slideData.section_number, '01'), textOpts({
+      x: 0.52, y: 1.34, w: 1.40, h: 0.72, fontFace: preset.font_heading,
+      fontSize: 18, bold: true, color: accent, fit: 'shrink',
+    }));
+    slide.addShape('line', shapeOpts({ x: 2.14, y: 1.10, w: 0, h: 4.92, line: { color: preset.line || 'CBD5E1', width: 0.8 } }));
+    slide.addText('GOVERNING QUESTION', textOpts({
+      x: 2.54, y: 1.12, w: 2.42, h: 0.20, fontFace: preset.font_body,
+      fontSize: 8, bold: true, color: muted, charSpacing: 1.1, fit: 'shrink',
+    }));
+    slide.addText(title, textOpts({
+      x: 2.54, y: 1.62, w: 6.72, h: 1.54, fontFace: preset.font_heading,
+      fontSize: 38, bold: true, color: text, fit: 'shrink',
+    }));
+    if (subtitle) {
+      slide.addShape('rect', shapeOpts({
+        x: 2.54, y: 4.18, w: 6.36, h: 1.00,
+        fill: { color: surface }, line: { color: preset.line || 'CBD5E1', width: 0.7 },
+      }));
+      slide.addShape('rect', shapeOpts({ x: 2.54, y: 4.18, w: 0.08, h: 1.00, fill: { color: accent }, line: { color: accent, width: 0 } }));
+      slide.addText(subtitle, textOpts({
+        x: 2.82, y: 4.40, w: 5.74, h: 0.54, fontFace: preset.font_body,
+        fontSize: 14, bold: true, color: text, fit: 'shrink',
+      }));
+    }
+    attachNotes(slide, slideData);
+    return true;
+  }
+
+  if (['method-tabs', 'section-method-result'].includes(system)) {
+    paintBackground(slide, preset.bg || 'FFFFFF');
+    addGrammarFrame(slide, preset, slideData);
+    slide.addText(safeText(slideData.kicker, 'STUDY PHASE'), textOpts({
+      x: 0.54, y: 0.72, w: 1.82, h: 0.18, fontFace: preset.font_body,
+      fontSize: 7.5, bold: true, color: accent, charSpacing: 1.0, fit: 'shrink',
+    }));
+    slide.addText(title, textOpts({
+      x: 0.54, y: 1.54, w: 8.36, h: 1.18, fontFace: preset.font_heading,
+      fontSize: 34, bold: true, color: text, fit: 'shrink',
+    }));
+    if (subtitle) slide.addText(subtitle, textOpts({
+      x: 0.54, y: 2.94, w: 7.82, h: 0.62, fontFace: preset.font_body,
+      fontSize: 14, color: muted, fit: 'shrink',
+    }));
+    ['DESIGN', 'CONTROL', 'READOUT', 'LIMIT'].forEach((label, idx) => {
+      const x = 0.54 + idx * 2.18;
+      slide.addShape('rect', shapeOpts({
+        x, y: 4.54, w: 1.92, h: 0.62,
+        fill: { color: idx === 2 ? accent : surface, transparency: idx === 2 ? 0 : 8 },
+        line: { color: idx === 2 ? accent : preset.line || 'CBD5E1', width: 0.6 },
+      }));
+      slide.addText(label, textOpts({
+        x: x + 0.12, y: 4.75, w: 1.68, h: 0.18, fontFace: preset.font_body,
+        fontSize: 8, bold: true, color: idx === 2 ? 'FFFFFF' : muted, align: 'center', fit: 'shrink',
+      }));
+    });
+    attachNotes(slide, slideData);
+    return true;
+  }
+
+  if (['care-stage', 'section-care-stage'].includes(system)) {
+    paintBackground(slide, preset.bg || 'FFFFFF');
+    addGrammarFrame(slide, preset, slideData);
+    slide.addText(safeText(slideData.kicker, 'CARE PATHWAY'), textOpts({
+      x: 0.86, y: 0.82, w: 1.72, h: 0.18, fontFace: preset.font_body,
+      fontSize: 7.5, bold: true, color: secondary, charSpacing: 1.0, fit: 'shrink',
+    }));
+    slide.addText(title, textOpts({
+      x: 0.86, y: 1.50, w: 6.20, h: 1.34, fontFace: preset.font_heading,
+      fontSize: 36, bold: true, color: text, fit: 'shrink',
+    }));
+    if (subtitle) slide.addText(subtitle, textOpts({
+      x: 0.86, y: 3.18, w: 5.92, h: 0.78, fontFace: preset.font_body,
+      fontSize: 14, color: muted, fit: 'shrink',
+    }));
+    slide.addShape('rect', shapeOpts({
+      x: 7.42, y: 1.30, w: 1.86, h: 3.58,
+      fill: { color: surface }, line: { color: preset.line || 'CBD5E1', width: 0.65 },
+    }));
+    slide.addText('DECISION WINDOW', textOpts({
+      x: 7.66, y: 1.62, w: 1.38, h: 0.22, fontFace: preset.font_body,
+      fontSize: 7.2, bold: true, color: muted, align: 'center', fit: 'shrink',
+    }));
+    slide.addText(safeText(slideData.status, 'REVIEW'), textOpts({
+      x: 7.66, y: 2.18, w: 1.38, h: 0.58, fontFace: preset.font_heading,
+      fontSize: 22, bold: true, color: accent, align: 'center', fit: 'shrink',
+    }));
+    slide.addText('benefit  |  risk  |  owner', textOpts({
+      x: 7.62, y: 3.46, w: 1.46, h: 0.48, fontFace: preset.font_body,
+      fontSize: 8, color: muted, align: 'center', fit: 'shrink',
+    }));
+    attachNotes(slide, slideData);
+    return true;
+  }
+
+  if (['article-spread', 'section-editorial-folio'].includes(system)) {
+    paintBackground(slide, preset.bg || 'FFFFFF');
+    addGrammarFrame(slide, preset, slideData);
+    slide.addText(safeText(slideData.kicker, 'CHAPTER'), textOpts({
+      x: 0.62, y: 0.72, w: 1.42, h: 0.18, fontFace: preset.font_body,
+      fontSize: 7.4, bold: true, color: accent, charSpacing: 1.1, fit: 'shrink',
+    }));
+    slide.addText(title, textOpts({
+      x: 0.62, y: 1.50, w: 5.82, h: 2.34, fontFace: preset.font_heading,
+      fontSize: 44, bold: true, color: text, fit: 'shrink',
+    }));
+    slide.addShape('line', shapeOpts({ x: 6.84, y: 1.30, w: 0, h: 4.72, line: { color: preset.line || 'CBD5E1', width: 0.7 } }));
+    if (subtitle) slide.addText(subtitle, textOpts({
+      x: 7.04, y: 1.58, w: 1.82, h: 2.18, fontFace: preset.font_body,
+      fontSize: 14, color: muted, valign: 'top', fit: 'shrink',
+    }));
+    slide.addText('Scene, context, counterpoint, interpretation.', textOpts({
+      x: 6.84, y: 4.48, w: 1.65, h: 0.54, fontFace: preset.font_body,
+      fontSize: 9, italic: true, color: muted, fit: 'shrink',
+    }));
+    attachNotes(slide, slideData);
+    return true;
+  }
+
+  if (['thesis-reset', 'section-thesis-stage'].includes(system)) {
+    paintBackground(slide, dark);
+    addGrammarFrame(slide, preset, slideData);
+    slide.addShape('rect', shapeOpts({
+      x: 7.62, y: 1.30, w: 1.62, h: 3.96,
+      fill: { color: surface, transparency: 78 },
+      line: { color: preset.line || '334155', width: 0.55 },
+    }));
+    [1.82, 2.72, 3.62, 4.52].forEach((y, idx) => {
+      slide.addShape('rect', shapeOpts({
+        x: 7.90, y, w: idx === 1 ? 1.02 : 0.72, h: 0.055,
+        fill: { color: idx === 1 ? secondary : preset.line || '475569', transparency: idx === 1 ? 0 : 18 },
+        line: { color: idx === 1 ? secondary : preset.line || '475569', width: 0 },
+      }));
+    });
+    slide.addShape('rect', shapeOpts({
+      x: 0.54, y: 5.14, w: 8.70, h: 0.36,
+      fill: { color: surface, transparency: 84 },
+      line: { color: preset.line || '334155', width: 0.45 },
+    }));
+    slide.addText(safeText(slideData.kicker, 'THESIS'), textOpts({
+      x: 0.54, y: 0.72, w: 1.82, h: 0.20, fontFace: preset.font_body,
+      fontSize: 8, bold: true, color: accent, charSpacing: 1.2, fit: 'shrink',
+    }));
+    slide.addText(title, textOpts({
+      x: 0.54, y: 1.82, w: 6.62, h: 1.82, fontFace: preset.font_heading,
+      fontSize: 46, bold: true, color: 'FFFFFF', fit: 'shrink',
+    }));
+    if (subtitle) slide.addText(subtitle, textOpts({
+      x: 0.54, y: 4.22, w: 7.72, h: 0.70, fontFace: preset.font_body,
+      fontSize: 15, color: darkSlideSubtitleColor(preset), fit: 'shrink',
+    }));
+    attachNotes(slide, slideData);
+    return true;
+  }
+
+  if (['workstream-band', 'section-operating-cycle'].includes(system)) {
+    paintBackground(slide, dark);
+    addGrammarFrame(slide, preset, slideData);
+    ['STATE', 'VARIANCE', 'OWNER', 'DUE'].forEach((label, idx) => {
+      slide.addText(label, textOpts({
+        x: 0.56 + idx * 2.22, y: 0.66, w: 1.80, h: 0.18,
+        fontFace: preset.font_body, fontSize: 7.2, bold: true,
+        color: idx === 1 ? secondary : darkSlideSubtitleColor(preset), align: 'center', fit: 'shrink',
+      }));
+    });
+    slide.addText(title, textOpts({
+      x: 0.56, y: 2.12, w: 8.86, h: 1.18, fontFace: preset.font_heading,
+      fontSize: 38, bold: true, color: 'FFFFFF', fit: 'shrink',
+    }));
+    if (subtitle) slide.addText(subtitle, textOpts({
+      x: 0.56, y: 3.58, w: 7.94, h: 0.62, fontFace: preset.font_body,
+      fontSize: 14, color: darkSlideSubtitleColor(preset), fit: 'shrink',
+    }));
+    slide.addShape('rect', shapeOpts({
+      x: 0.56, y: 4.72, w: 8.74, h: 0.62,
+      fill: { color: surface, transparency: 82 }, line: { color: preset.line || '475569', width: 0.55 },
+    }));
+    attachNotes(slide, slideData);
+    return true;
+  }
+
+  if (['docket-tab', 'section-policy-docket'].includes(system)) {
+    paintBackground(slide, preset.bg || 'FFFFFF');
+    addGrammarFrame(slide, preset, slideData);
+    slide.addShape('rect', shapeOpts({
+      x: 0.22, y: 1.04, w: 0.22, h: 0.08,
+      fill: { color: 'FFFFFF' }, line: { color: 'FFFFFF', width: 0 },
+    }));
+    slide.addText(safeText(slideData.kicker, 'PUBLIC QUESTION'), textOpts({
+      x: 0.84, y: 0.90, w: 2.14, h: 0.20, fontFace: preset.font_body,
+      fontSize: 8, bold: true, color: accent, charSpacing: 1.0, fit: 'shrink',
+    }));
+    slide.addText(title, textOpts({
+      x: 0.84, y: 1.58, w: 8.08, h: 1.42, fontFace: preset.font_heading,
+      fontSize: 38, bold: true, color: text, fit: 'shrink',
+    }));
+    if (subtitle) slide.addText(subtitle, textOpts({
+      x: 0.84, y: 3.44, w: 7.14, h: 0.84, fontFace: preset.font_body,
+      fontSize: 15, color: muted, fit: 'shrink',
+    }));
+    slide.addShape('rect', shapeOpts({
+      x: 0.84, y: 4.86, w: 8.12, h: 0.54,
+      fill: { color: surface }, line: { color: preset.line || 'CBD5E1', width: 0.65 },
+    }));
+    slide.addText('population  |  geography  |  evidence  |  options  |  accountability', textOpts({
+      x: 1.20, y: 4.98, w: 7.40, h: 0.18, fontFace: preset.font_body,
+      fontSize: 8.2, color: muted, align: 'center', fit: 'shrink',
+    }));
+    attachNotes(slide, slideData);
+    return true;
+  }
+
+  if (['incident-mode', 'section-system-layer'].includes(system)) {
+    paintBackground(slide, dark);
+    addGrammarFrame(slide, preset, slideData);
+    slide.addShape('rect', shapeOpts({
+      x: 0.42, y: 1.16, w: 1.72, h: 4.48,
+      fill: { color: surface, transparency: 6 }, line: { color: preset.line || '334155', width: 0.6 },
+    }));
+    slide.addText(safeText(slideData.kicker, 'INCIDENT MODE'), textOpts({
+      x: 0.62, y: 1.46, w: 1.32, h: 0.20, fontFace: preset.font_body,
+      fontSize: 7.2, bold: true, color: accent, align: 'center', fit: 'shrink',
+    }));
+    slide.addText(safeText(slideData.status, 'DIAGNOSE'), textOpts({
+      x: 0.62, y: 2.10, w: 1.32, h: 0.68, fontFace: preset.font_heading,
+      fontSize: 22, bold: true, color: 'FFFFFF', align: 'center', fit: 'shrink',
+    }));
+    ['OBSERVE', 'DIAGNOSE', 'RESPOND', 'RECOVER'].forEach((label, idx) => {
+      slide.addText(label, textOpts({
+        x: 0.64, y: 3.20 + idx * 0.46, w: 1.28, h: 0.16,
+        fontFace: preset.font_body, fontSize: 7, bold: idx === 1,
+        color: idx === 1 ? secondary : darkSlideSubtitleColor(preset), align: 'center', fit: 'shrink',
+      }));
+    });
+    slide.addText(title, textOpts({
+      x: 2.58, y: 1.70, w: 6.64, h: 1.48, fontFace: preset.font_heading,
+      fontSize: 38, bold: true, color: 'FFFFFF', fit: 'shrink',
+    }));
+    if (subtitle) slide.addText(subtitle, textOpts({
+      x: 2.58, y: 3.60, w: 5.78, h: 0.72, fontFace: preset.font_body,
+      fontSize: 14, color: darkSlideSubtitleColor(preset), fit: 'shrink',
+    }));
+    attachNotes(slide, slideData);
+    return true;
+  }
+
+  return false;
+}
+
 function renderSection(pptx, slide, slideData, preset) {
+  if (renderRoleSection(slide, slideData, preset)) return;
+  const motif = String(slideData.structural_motif || preset.structural_motif || '').trim().toLowerCase();
+  const title = safeText(slideData.title, 'Section');
+  const subtitle = safeText(slideData.subtitle);
+  const lightEditorial = new Set([
+    'editorial-rule',
+    'journal-folio',
+    'case-margin',
+    'field-notes',
+    'open-coordinate',
+  ]);
+  const technicalStage = new Set(['workflow-brackets', 'signal-grid', 'incident-rail']);
+  const investorStage = new Set(['proof-stage', 'thesis-window']);
+
+  if (lightEditorial.has(motif)) {
+    paintBackground(slide, preset.bg || 'FFFFFF');
+    addPageSystemChrome(slide, preset, slideData);
+    const textColor = cleanHex(preset.text || preset.text_primary, '0F172A');
+    const muted = cleanHex(preset.text_muted, '64748B');
+    const accent = cleanHex(preset.accent_primary, 'D4461E');
+    addTitleKicker(slide, preset, slideData.kicker || 'SECTION', {
+      x: MARGIN_X, y: 0.54, w: 2.4, h: 0.18, color: accent, fontSize: 8.2,
+    });
+    slide.addText(title, textOpts({
+      x: MARGIN_X,
+      y: 1.36,
+      w: 6.08,
+      h: 1.82,
+      fontFace: preset.font_heading,
+      fontSize: 42,
+      bold: true,
+      color: textColor,
+      fit: 'shrink',
+    }));
+    slide.addShape('rect', shapeOpts({
+      x: 7.08, y: 1.30, w: 0.018, h: 4.48,
+      fill: { color: preset.line || 'E5E7EB' }, line: { color: preset.line || 'E5E7EB', width: 0 },
+    }));
+    slide.addShape('rect', shapeOpts({
+      x: 7.045, y: 1.30, w: 0.088, h: 0.76,
+      fill: { color: accent }, line: { color: accent, width: 0 },
+    }));
+    if (subtitle) {
+      slide.addText(subtitle, textOpts({
+        x: 7.42,
+        y: 1.42,
+        w: 2.08,
+        h: 1.42,
+        fontFace: preset.font_body,
+        fontSize: 12.5,
+        color: muted,
+        fit: 'shrink',
+      }));
+    }
+    slide.addShape('rect', shapeOpts({
+      x: MARGIN_X, y: 5.76, w: 6.12, h: 0.02,
+      fill: { color: textColor }, line: { color: textColor, width: 0 },
+    }));
+    attachNotes(slide, slideData);
+    return;
+  }
+
+  if (technicalStage.has(motif)) {
+    paintBackground(slide, preset.bg_dark);
+    addPageSystemChrome(slide, preset, slideData);
+    addTitleKicker(slide, preset, slideData.kicker || 'SYSTEM PHASE', {
+      x: MARGIN_X, y: 0.58, w: 2.8, h: 0.18, color: preset.accent_secondary, fontSize: 8.2,
+    });
+    slide.addText(title, textOpts({
+      x: MARGIN_X, y: 1.38, w: 8.20, h: 1.48,
+      fontFace: preset.font_heading, fontSize: 40, bold: true, color: 'FFFFFF', fit: 'shrink',
+    }));
+    if (subtitle) {
+      slide.addText(subtitle, textOpts({
+        x: MARGIN_X, y: 3.06, w: 7.40, h: 0.82,
+        fontFace: preset.font_body, fontSize: 15, color: darkSlideSubtitleColor(preset), fit: 'shrink',
+      }));
+    }
+    const stripW = 0.42;
+    [0, 1, 2].forEach((idx) => {
+      slide.addShape('rect', shapeOpts({
+        x: 8.12 + idx * (stripW + 0.12), y: 4.76, w: stripW, h: 0.08,
+        fill: { color: idx === 1 ? preset.accent_secondary : preset.accent_primary, transparency: idx === 1 ? 0 : 42 },
+        line: { color: preset.accent_primary, transparency: 100, width: 0 },
+      }));
+    });
+    attachNotes(slide, slideData);
+    return;
+  }
+
+  if (investorStage.has(motif)) {
+    paintBackground(slide, preset.bg_dark);
+    addPageSystemChrome(slide, preset, slideData);
+    addTitleKicker(slide, preset, slideData.kicker || 'THESIS TURN', {
+      x: MARGIN_X, y: 0.64, w: 2.8, h: 0.18, color: preset.accent_primary, fontSize: 8.4,
+    });
+    slide.addShape('rect', shapeOpts({
+      x: MARGIN_X, y: 1.02, w: 1.12, h: 0.065,
+      fill: { color: preset.accent_primary }, line: { color: preset.accent_primary, width: 0 },
+    }));
+    slide.addText(title, textOpts({
+      x: MARGIN_X, y: 2.06, w: 9.10, h: 1.62,
+      fontFace: preset.font_heading, fontSize: 44, bold: true, color: 'FFFFFF', fit: 'shrink',
+    }));
+    if (subtitle) {
+      slide.addText(subtitle, textOpts({
+        x: MARGIN_X, y: 4.02, w: 8.40, h: 0.78,
+        fontFace: preset.font_body, fontSize: 15, color: darkSlideSubtitleColor(preset), fit: 'shrink',
+      }));
+    }
+    attachNotes(slide, slideData);
+    return;
+  }
+
   paintBackground(slide, preset.bg_dark);
   addBackgroundImage(slide, slideData.background_image, preset);
-  addSectionMotif(slide, preset);
+  if (!motif) addSectionMotif(slide, preset);
+  addPageSystemChrome(slide, preset, slideData);
 
   // Large accent block as divider motif.
   slide.addShape('rect', shapeOpts({
@@ -1616,7 +2423,7 @@ function renderSection(pptx, slide, slideData, preset) {
     fill: { color: preset.accent_primary },
   }));
 
-  slide.addText(safeText(slideData.title, 'Section'), textOpts({
+  slide.addText(title, textOpts({
     x: MARGIN_X,
     y: 1.40,
     w: SLIDE_W - MARGIN_X * 2,
@@ -1627,7 +2434,6 @@ function renderSection(pptx, slide, slideData, preset) {
     color: 'FFFFFF',
   }));
 
-  const subtitle = safeText(slideData.subtitle);
   if (subtitle) {
     const subtitleH = Math.min(
       1.20,
@@ -2652,7 +3458,7 @@ function renderTimeline(pptx, slide, slideData, preset) {
       x: cardX,
       y: railY - 0.80,
       w: cardW,
-      h: 0.32,
+      h: 0.30,
       fontFace: preset.font_heading,
       fontSize: 12,
       bold: true,
@@ -3224,8 +4030,16 @@ function renderKpiHero(pptx, slide, slideData, preset) {
   let valueFont = kpiValueFontSize(value);
 
   const valueColor = dark
-    ? (preset.accent_secondary || preset.accent_primary || 'F59E0B')
-    : preset.accent_primary;
+    ? firstReadableColor(
+      bgColor,
+      [preset.accent_secondary, preset.accent_primary, 'FFFFFF', preset.text],
+      4.5,
+    )
+    : firstReadableColor(
+      bgColor,
+      [preset.accent_primary, preset.accent_secondary, preset.text, '0F172A'],
+      4.5,
+    );
 
   // Center value vertically in the content zone, but reserve space for the
   // subtitle. Without this reservation, the big value shape overlaps the
@@ -3709,6 +4523,7 @@ function renderTable(pptx, slide, slideData, preset) {
       slideData.source_footer_compaction &&
       slideData.source_footer_compaction.generated_by === 'scripts/compact_source_footers.py'
     );
+  const referenceSystem = referenceTable ? roleSystem(preset, slideData, 'references') : '';
   const tableTreatment = referenceTable
     ? 'references'
     : normalizeTableTreatment(slideData.table_treatment || table.table_treatment, preset.table_treatment);
@@ -3733,24 +4548,99 @@ function renderTable(pptx, slide, slideData, preset) {
   const captionLines = (table.caption ? 1 : 0) + table.footnotes.length;
   const captionGap = captionLines ? 0.12 : 0;
   const captionH = captionLines ? Math.min(referenceTable ? 0.38 : 0.54, 0.18 + captionLines * 0.14) : 0;
-  const availableH = SLIDE_H - header.contentTop - 0.56 - captionH - captionGap;
+  const operationsReference = ['references-operations-log', 'references-technical-register'].includes(referenceSystem);
+  const availableH = SLIDE_H - header.contentTop - 0.56 - captionH - captionGap - (operationsReference ? 0.42 : 0);
   const treatmentOpts = tableTreatmentOptions(tableTreatment, preset, referenceTable);
   const tableRows = buildTableRows(table, preset, treatmentOpts);
-  const tableY = header.contentTop + (tableTreatment === 'journal-grid' ? 0.34 : 0.2);
+  let tableY = header.contentTop + (tableTreatment === 'journal-grid' ? 0.34 : 0.2) + (operationsReference ? 0.42 : 0);
   const sidecar = tableTreatment === 'readout-sidecar';
   const decisionStrip = tableTreatment === 'decision-matrix';
   const journalGrid = tableTreatment === 'journal-grid';
   const gap = sidecar ? 0.30 : 0;
   const sidecarW = sidecar ? Math.min(2.05, usableW * 0.24) : 0;
-  const tableX = journalGrid ? MARGIN_X + usableW * 0.06 : MARGIN_X;
-  const tableW = journalGrid ? usableW * 0.88 : usableW - sidecarW - gap;
+  let tableX = journalGrid ? MARGIN_X + usableW * 0.06 : MARGIN_X;
+  let tableW = journalGrid ? usableW * 0.88 : usableW - sidecarW - gap;
+  const editorialReference = referenceSystem === 'references-editorial-notes';
+  const docketReference = referenceSystem === 'references-public-docket';
+  const executiveReference = ['references-executive-notes', 'references-investor-diligence'].includes(referenceSystem);
+  if (editorialReference) {
+    tableX += 1.62;
+    tableW -= 1.62;
+  } else if (docketReference) {
+    tableX += 1.08;
+    tableW -= 1.08;
+  } else if (executiveReference) {
+    tableW *= 0.73;
+  }
   const colW = tableColumnWidths(headers, table.column_weights, tableW);
   const stripH = decisionStrip ? 1.10 : 0;
   const tableAvailableH = Math.max(0.75, availableH - stripH - (decisionStrip ? 0.14 : 0));
   const rowH = treatmentOpts.rowH || (referenceTable ? Math.max(0.24, Math.min(0.42, tableAvailableH / Math.max(1, tableRows.length))) : 0.42);
   const tableH = referenceTable
-    ? Math.max(0.75, tableAvailableH)
+    ? Math.max(0.75, Math.min(tableAvailableH, 0.52 + tableRows.length * rowH))
     : Math.min(tableAvailableH, 0.52 + tableRows.length * rowH);
+
+  if (referenceTable && editorialReference) {
+    slide.addShape('line', shapeOpts({
+      x: MARGIN_X + 1.28, y: tableY, w: 0, h: tableH,
+      line: { color: preset.line || 'CBD5E1', width: 0.75 },
+    }));
+    slide.addText('NOTES', textOpts({
+      x: MARGIN_X, y: tableY, w: 1.08, h: 0.22, fontFace: preset.font_body,
+      fontSize: 7.6, bold: true, color: preset.accent_primary, charSpacing: 1.2, fit: 'shrink',
+    }));
+    slide.addText('Sources are read as a closing editorial apparatus, not as a dashboard.', textOpts({
+      x: MARGIN_X, y: tableY + 0.54, w: 1.08, h: Math.max(0.72, tableH - 0.70),
+      fontFace: preset.font_heading, fontSize: 11, color: preset.text || preset.text_primary,
+      valign: 'top', fit: 'shrink',
+    }));
+  }
+  if (referenceTable && docketReference) {
+    ['01', '02', '03'].forEach((label, idx) => {
+      slide.addText(label, textOpts({
+        x: MARGIN_X, y: tableY + idx * 0.74, w: 0.72, h: 0.28,
+        fontFace: preset.font_heading, fontSize: 12, bold: true,
+        color: idx === 0 ? preset.accent_primary : preset.text_muted, align: 'center', fit: 'shrink',
+      }));
+      slide.addShape('line', shapeOpts({
+        x: MARGIN_X + 0.16, y: tableY + 0.38 + idx * 0.74, w: 0.40, h: 0,
+        line: { color: idx === 0 ? preset.accent_primary : preset.line || 'CBD5E1', width: 0.65 },
+      }));
+    });
+  }
+  if (referenceTable && executiveReference) {
+    const panelX = tableX + tableW + 0.28;
+    const panelW = MARGIN_X + usableW - panelX;
+    slide.addShape('rect', shapeOpts({
+      x: panelX, y: tableY, w: panelW, h: tableH,
+      fill: { color: preset.surface || 'FFFFFF' }, line: { color: preset.line || 'CBD5E1', width: 0.65 },
+    }));
+    slide.addShape('rect', shapeOpts({
+      x: panelX, y: tableY, w: panelW, h: 0.10,
+      fill: { color: preset.accent_primary }, line: { color: preset.accent_primary, width: 0 },
+    }));
+    slide.addText(referenceSystem === 'references-investor-diligence' ? 'DILIGENCE' : 'SOURCE POSTURE', textOpts({
+      x: panelX + 0.18, y: tableY + 0.32, w: panelW - 0.36, h: 0.24,
+      fontFace: preset.font_body, fontSize: 7.5, bold: true, color: preset.accent_primary, fit: 'shrink',
+    }));
+    slide.addText(`${rows.length} source records\nClaims remain linked to editable evidence objects.`, textOpts({
+      x: panelX + 0.18, y: tableY + 0.70, w: panelW - 0.36, h: Math.max(0.90, tableH - 0.90),
+      fontFace: preset.font_heading, fontSize: 11, color: preset.text || preset.text_primary, fit: 'shrink',
+    }));
+  }
+  if (referenceTable && operationsReference) {
+    slide.addShape('rect', shapeOpts({
+      x: MARGIN_X, y: tableY - 0.36, w: usableW, h: 0.24,
+      fill: { color: preset.surface || 'FFFFFF' }, line: { color: preset.line || 'CBD5E1', width: 0.45 },
+    }));
+    slide.addText(referenceSystem === 'references-technical-register'
+      ? 'TIME  |  SIGNAL  |  COMPONENT  |  PROVENANCE'
+      : 'PERIOD  |  OWNER  |  FRESHNESS  |  SOURCE', textOpts({
+      x: MARGIN_X + 0.14, y: tableY - 0.31, w: usableW - 0.28, h: 0.14,
+      fontFace: preset.font_body, fontSize: 7.2, bold: true,
+      color: preset.accent_primary, align: 'center', fit: 'shrink',
+    }));
+  }
 
   if (journalGrid) {
     slide.addShape('line', shapeOpts({
@@ -4141,7 +5031,82 @@ function renderComparisonScorecard(pptx, slide, slideData, preset) {
   attachNotes(slide, slideData);
 }
 
+function renderPolicyOptionDocket(pptx, slide, slideData, preset) {
+  paintBackground(slide, preset.bg);
+  const header = addDarkTitleBar(slide, preset, slideData.title, slideData.subtitle, slideData);
+  const options = [
+    (slideData.left && typeof slideData.left === 'object') ? slideData.left : {},
+    (slideData.right && typeof slideData.right === 'object') ? slideData.right : {},
+  ];
+  const verdict = safeText(slideData.verdict || slideData.takeaway);
+  const top = header.contentTop + 0.22;
+  const usableH = SLIDE_H - top - 0.84;
+  const docketW = 0.72;
+  const verdictW = verdict ? 2.02 : 0;
+  const gap = 0.22;
+  const bandX = MARGIN_X + docketW + gap;
+  const bandW = SLIDE_W - MARGIN_X * 2 - docketW - gap - verdictW - (verdict ? gap : 0);
+  const bandH = (usableH - gap) / 2;
+  options.forEach((spec, idx) => {
+    const y = top + idx * (bandH + gap);
+    const accent = idx === 0 ? preset.accent_primary : preset.accent_secondary;
+    const lines = Array.isArray(spec.bullets)
+      ? spec.bullets.map((item) => safeText(item)).filter(Boolean)
+      : comparisonMetricRows(spec).map((item) => item.label || item.note).filter(Boolean);
+    slide.addText(`0${idx + 1}`, textOpts({
+      x: MARGIN_X, y: y + 0.10, w: docketW, h: 0.34,
+      fontFace: preset.font_heading, fontSize: 14, bold: true, color: accent, align: 'center', fit: 'shrink',
+    }));
+    slide.addShape('line', shapeOpts({
+      x: MARGIN_X + 0.16, y: y + 0.56, w: docketW - 0.32, h: 0,
+      line: { color: accent, width: 0.75 },
+    }));
+    slide.addShape('rect', shapeOpts({
+      x: bandX, y, w: bandW, h: bandH,
+      fill: { color: preset.surface || 'FFFFFF' }, line: { color: preset.line || 'CBD5E1', width: 0.65 },
+    }));
+    slide.addShape('rect', shapeOpts({
+      x: bandX, y, w: 0.08, h: bandH,
+      fill: { color: accent }, line: { color: accent, width: 0 },
+    }));
+    slide.addText(safeText(spec.title, `Option ${idx + 1}`), textOpts({
+      x: bandX + 0.28, y: y + 0.18, w: bandW * 0.34, h: bandH - 0.36,
+      fontFace: preset.font_heading, fontSize: 18, bold: true, color: accent,
+      valign: 'middle', fit: 'shrink',
+    }));
+    slide.addText(lines.slice(0, 3).join('\n'), textOpts({
+      x: bandX + bandW * 0.40, y: y + 0.18, w: bandW * 0.55, h: bandH - 0.36,
+      fontFace: preset.font_body, fontSize: 12, color: preset.text || preset.text_primary,
+      valign: 'middle', fit: 'shrink',
+    }));
+  });
+  if (verdict) {
+    const x = bandX + bandW + gap;
+    slide.addShape('rect', shapeOpts({
+      x, y: top, w: verdictW, h: usableH,
+      fill: { color: preset.bg_dark || '0F172A' }, line: { color: preset.bg_dark || '0F172A', width: 0 },
+    }));
+    slide.addText('PUBLIC DECISION', textOpts({
+      x: x + 0.20, y: top + 0.30, w: verdictW - 0.40, h: 0.24,
+      fontFace: preset.font_body, fontSize: 7.5, bold: true,
+      color: preset.accent_secondary || 'FFFFFF', align: 'center', fit: 'shrink',
+    }));
+    slide.addText(verdict, textOpts({
+      x: x + 0.22, y: top + 1.02, w: verdictW - 0.44, h: usableH - 1.34,
+      fontFace: preset.font_heading, fontSize: 15, bold: true, color: 'FFFFFF',
+      valign: 'middle', align: 'center', fit: 'shrink',
+    }));
+  }
+  addFooter(slide, preset, slideData);
+  attachNotes(slide, slideData);
+}
+
 function renderComparison2col(pptx, slide, slideData, preset) {
+  const comparisonSystem = roleSystem(preset, slideData, 'comparison');
+  if (comparisonSystem === 'comparison-policy-options') {
+    renderPolicyOptionDocket(pptx, slide, slideData, preset);
+    return;
+  }
   const mode = String(slideData.comparison_mode || preset.comparison_mode || 'open-columns').trim().toLowerCase();
   if (mode === 'scorecard') {
     renderComparisonScorecard(pptx, slide, slideData, preset);
@@ -5078,7 +6043,11 @@ function normalizeScientificFigureLayout(slideData, preset) {
       || preset.figure_layout
       || '',
   ).trim().toLowerCase();
-  const treatment = String(preset.figure_table_treatment || '').trim().toLowerCase();
+  const treatment = String(
+    slideData.figure_table_treatment
+      || preset.figure_table_treatment
+      || '',
+  ).trim().toLowerCase();
   const value = raw || treatment;
   if (['primary-rail', 'primary_rail', 'figure-rail', 'figure-first-rail'].includes(value)) return 'primary-rail';
   if (['ledger-rail', 'ledger_rail', 'table-first', 'table-first-rail'].includes(value)) return 'ledger-rail';
@@ -5483,9 +6452,9 @@ function renderChartFactCards(slide, preset, facts, x, y, w, h) {
     if (fact.value) {
       slide.addText(truncate(fact.value, 12), textOpts({
       x: cardX + 0.15,
-      y: y + 0.11,
+      y: y + 0.08,
       w: cardW - 0.28,
-      h: 0.36,
+      h: 0.32,
       fontFace: preset.font_heading,
       fontSize: 16,
         bold: true,
@@ -5495,9 +6464,9 @@ function renderChartFactCards(slide, preset, facts, x, y, w, h) {
     }
     slide.addText(truncate(fact.label || fact.caption || '', 54), textOpts({
       x: cardX + 0.15,
-      y: y + (fact.value ? 0.56 : 0.13),
+      y: y + (fact.value ? 0.52 : 0.12),
       w: cardW - 0.28,
-      h: 0.26,
+      h: 0.22,
       fontFace: preset.font_heading,
       fontSize: 8.6,
       bold: true,
@@ -5507,9 +6476,9 @@ function renderChartFactCards(slide, preset, facts, x, y, w, h) {
     if (fact.caption && fact.value) {
       slide.addText(truncate(fact.caption, 72), textOpts({
         x: cardX + 0.15,
-        y: y + 0.96,
+        y: y + 0.85,
         w: cardW - 0.28,
-        h: Math.max(0.16, h - 1.02),
+        h: Math.max(0.16, h - 0.91),
         fontFace: preset.font_body,
         fontSize: 7.4,
         color: preset.text_muted || '64748B',
@@ -5734,8 +6703,9 @@ function renderChart(pptx, slide, slideData, preset) {
   const header = addDarkTitleBar(slide, preset, slideData.title || payload.title, slideData.subtitle || payload.subtitle, slideData);
   const facts = normalizeFacts(slideData.facts || slideData.stats || payload.facts).slice(0, 3);
   const note = safeText(slideData.message || slideData.caption || payload.notes);
+  const dataSystem = roleSystem(preset, slideData, 'data');
   const rawTreatment = String(slideData.chart_treatment || preset.chart_treatment || 'standard').trim().toLowerCase();
-  const chartTreatment = [
+  let chartTreatment = [
     'standard',
     'facts-below',
     'facts-right',
@@ -5746,36 +6716,93 @@ function renderChart(pptx, slide, slideData, preset) {
   ].includes(rawTreatment)
     ? rawTreatment
     : 'standard';
+  const roleTreatment = {
+    'benchmark-exhibit': 'facts-right',
+    'data-executive-exhibit': 'facts-right',
+    'assay-readout': 'sparse-wide',
+    'data-assay-readout': 'sparse-wide',
+    'endpoint-threshold': 'threshold-band',
+    'data-clinical-outcomes': 'threshold-band',
+    'annotated-evidence': 'minimal',
+    'data-annotated-graphic': 'minimal',
+    'growth-proof': 'hero-stat',
+    'data-unit-economics': 'hero-stat',
+    'operating-grid': 'facts-below',
+    'data-operations-grid': 'facts-below',
+    'distribution-lens': 'minimal',
+    'data-public-impact': 'threshold-band',
+    'telemetry-canvas': 'facts-right',
+    'data-telemetry-canvas': 'facts-right',
+  }[dataSystem];
+  if (!slideData.chart_treatment && roleTreatment) chartTreatment = roleTreatment;
   const hasFooter = hasFooterChrome(slideData, preset);
   const contentY = header.contentTop + 0.22;
   const usableW = SLIDE_W - MARGIN_X * 2;
-  const footerReserve = hasFooter ? 0.56 : 0.20;
+  const footerReserve = hasFooter ? 0.68 : 0.20;
   const factsRight = chartTreatment === 'facts-right' && facts.length > 0;
   const heroStat = chartTreatment === 'hero-stat' && facts.length > 0;
   const thresholdBand = chartTreatment === 'threshold-band' && (facts.length > 0 || note);
   const sparseWide = chartTreatment === 'sparse-wide';
+  const contextRail = ['annotated-evidence', 'data-annotated-graphic', 'distribution-lens'].includes(dataSystem);
   const showFactCards = facts.length > 0 && !['minimal', 'hero-stat', 'threshold-band', 'sparse-wide'].includes(chartTreatment);
-  const noteH = note && (!facts.length || chartTreatment === 'minimal' || sparseWide) ? 0.30 : 0;
-  const factH = showFactCards && !factsRight ? 1.22 : 0;
+  const noteH = note && !contextRail && (!facts.length || chartTreatment === 'minimal' || sparseWide) ? 0.30 : 0;
+  const factH = showFactCards && !factsRight ? 1.15 : 0;
   const bandH = thresholdBand ? 0.74 : 0;
+  const roleBandH = ['assay-readout', 'data-assay-readout'].includes(dataSystem) ? 0.46 : 0;
   const gap = factsRight || heroStat ? 0.32 : 0.20;
   const chartH = Math.max(
-    2.05,
-    SLIDE_H - contentY - footerReserve - noteH - factH - bandH
+    chartTreatment === 'facts-below' ? 1.82 : 2.05,
+    SLIDE_H - contentY - footerReserve - noteH - factH - bandH - roleBandH
       - (showFactCards && !factsRight ? gap : 0)
       - (thresholdBand ? 0.18 : 0)
       - (note ? 0.10 : 0),
   );
   const chartY = contentY + (sparseWide ? 0.12 : 0);
   const heroW = heroStat ? Math.min(2.45, usableW * 0.28) : 0;
-  const railW = factsRight ? 2.15 : 0;
+  const railW = factsRight ? (['telemetry-canvas', 'data-telemetry-canvas'].includes(dataSystem) ? 2.32 : 2.15) : 0;
   const sparseInset = sparseWide ? usableW * 0.08 : 0;
-  const chartX = heroStat
+  let chartX = heroStat
     ? MARGIN_X + heroW + gap
     : MARGIN_X + sparseInset;
-  const chartW = factsRight
+  let chartW = factsRight
     ? usableW - railW - gap
     : usableW - heroW - (heroStat ? gap : 0) - sparseInset * 2;
+  const leftContextW = ['annotated-evidence', 'data-annotated-graphic'].includes(dataSystem)
+    ? 2.04
+    : (dataSystem === 'distribution-lens' ? 1.58 : 0);
+  if (leftContextW) {
+    chartX += leftContextW + 0.24;
+    chartW -= leftContextW + 0.24;
+  }
+
+  if (['annotated-evidence', 'data-annotated-graphic', 'distribution-lens'].includes(dataSystem)) {
+    const panelX = MARGIN_X;
+    const editorialData = ['annotated-evidence', 'data-annotated-graphic'].includes(dataSystem);
+    const panelTitle = editorialData ? 'WHAT THE EVIDENCE SAYS' : 'WHO IS AFFECTED';
+    const panelBody = note || (editorialData
+      ? 'Lead with the observation, then show the exhibit.'
+      : 'Read the result by population, place, and baseline.');
+    slide.addShape('rect', shapeOpts({
+      x: panelX, y: chartY, w: leftContextW, h: chartH,
+      fill: { color: preset.surface || 'FFFFFF' },
+      line: { color: preset.line || 'CBD5E1', width: 0.55 },
+    }));
+    slide.addShape('rect', shapeOpts({
+      x: panelX, y: chartY, w: 0.07, h: chartH,
+      fill: { color: preset.accent_primary }, line: { color: preset.accent_primary, width: 0 },
+    }));
+    slide.addText(panelTitle, textOpts({
+      x: panelX + 0.22, y: chartY + 0.24, w: leftContextW - 0.40, h: 0.52,
+      fontFace: preset.font_body, fontSize: 12, bold: true,
+      color: preset.accent_primary, fit: 'shrink',
+    }));
+    slide.addText(panelBody, textOpts({
+      x: panelX + 0.22, y: chartY + 0.94, w: leftContextW - 0.40, h: Math.max(0.76, chartH - 1.30),
+      fontFace: preset.font_heading, fontSize: editorialData ? 13.5 : 12,
+      bold: editorialData, color: preset.text || preset.text_primary || '0F172A',
+      valign: 'top', fit: 'shrink',
+    }));
+  }
 
   if (heroStat) {
     renderChartHeroStat(slide, preset, facts[0], note, MARGIN_X, chartY, heroW, chartH);
@@ -5861,7 +6888,7 @@ function renderChart(pptx, slide, slideData, preset) {
     renderChartThresholdBand(slide, preset, facts, note, MARGIN_X, cursorY, usableW, bandH);
     cursorY += bandH + 0.10;
   }
-  if (note && (!facts.length || chartTreatment === 'minimal' || sparseWide)) {
+  if (note && !contextRail && (!facts.length || chartTreatment === 'minimal' || sparseWide)) {
     slide.addText(note, textOpts({
       x: MARGIN_X,
       y: Math.min(cursorY, SLIDE_H - footerReserve - noteH),
@@ -5872,6 +6899,20 @@ function renderChart(pptx, slide, slideData, preset) {
       italic: true,
       color: preset.text_muted || '64748B',
       fit: 'shrink',
+    }));
+  }
+
+  if (['assay-readout', 'data-assay-readout'].includes(dataSystem)) {
+    const y = cursorY + noteH + 0.08;
+    slide.addShape('rect', shapeOpts({
+      x: MARGIN_X, y, w: usableW, h: 0.32,
+      fill: { color: preset.surface || 'FFFFFF' },
+      line: { color: preset.line || 'CBD5E1', width: 0.45 },
+    }));
+    slide.addText('METHOD  |  CONTROL  |  n  |  UNCERTAINTY  |  INTERPRETATION', textOpts({
+      x: MARGIN_X + 0.16, y: y + 0.08, w: usableW - 0.32, h: 0.16,
+      fontFace: preset.font_body, fontSize: 8.2, bold: true,
+      color: preset.text_muted || '64748B', align: 'center', fit: 'shrink',
     }));
   }
 

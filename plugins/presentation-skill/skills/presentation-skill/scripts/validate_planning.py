@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from design_tokens import available_presets
+from taste_grammar_catalog import validate_renderer_role_systems_v1
 
 
 SUPPORTED_STYLE_PRESET_NAMES = {str(name).strip().lower(): str(name).strip() for name in available_presets()}
@@ -32,10 +33,17 @@ SUPPORTED_TITLE_LAYOUTS = {
     "poster",
     "masthead",
     "light-atlas",
+    "broadsheet",
 }
 SUPPORTED_HEADER_MODES = {"bar", "stack", "eyebrow", "lab-clean", "lab-card"}
 SUPPORTED_VISUAL_DENSITIES = {"low", "medium", "high"}
 SUPPORTED_PAGE_SYSTEMS = {"clinical-rail", "board-ledger", "editorial-field", "command-canvas", "lab-plate", "investor-thesis", "none"}
+SUPPORTED_STRUCTURAL_MOTIFS = {
+    "clinical-stages", "board-index", "field-notes", "thesis-window",
+    "workflow-brackets", "case-margin", "journal-folio", "editorial-rule",
+    "open-coordinate", "proof-stage", "incident-rail", "signal-grid",
+    "assay-register", "none",
+}
 SUPPORTED_TITLE_MOTIFS = {"orbit", "network", "editorial", "none"}
 SUPPORTED_SECTION_MOTIFS = {"rail-dots", "numbered-tabs", "plain", "none"}
 SUPPORTED_TIMELINE_MODES = {"rail-cards", "staggered", "open-events", "bands", "chapter-spread"}
@@ -69,6 +77,7 @@ STYLE_MIX_POOL_SPECS = (
     ("footer_pool", SUPPORTED_FOOTERS, False),
     ("figure_table_treatment_pool", SUPPORTED_FIGURE_TREATMENTS, False),
     ("page_system_pool", SUPPORTED_PAGE_SYSTEMS, False),
+    ("structural_motif_pool", SUPPORTED_STRUCTURAL_MOTIFS, False),
     ("image_sidebar_mode_pool", SUPPORTED_IMAGE_SIDEBAR_MODES, False),
     ("comparison_mode_pool", SUPPORTED_COMPARISON_MODES, False),
 )
@@ -2543,6 +2552,7 @@ def _validate_style_preset(brief: dict[str, Any]) -> list[dict[str, str]]:
 STYLE_TREATMENT_ENUMS = {
     "visual_density": SUPPORTED_VISUAL_DENSITIES,
     "page_system": SUPPORTED_PAGE_SYSTEMS,
+    "structural_motif": SUPPORTED_STRUCTURAL_MOTIFS,
     "header_mode": SUPPORTED_HEADER_MODES,
     "header_variant": SUPPORTED_HEADER_VARIANTS,
     "title_layout": SUPPORTED_TITLE_LAYOUTS,
@@ -2694,6 +2704,47 @@ def _validate_style_treatments(brief: dict[str, Any]) -> list[dict[str, str]]:
             base=f"design_brief.{field}",
             keys=set(STYLE_TREATMENT_ENUMS),
             include_header_variants=True,
+        )
+    return issues
+
+
+def _validate_renderer_role_systems_contract(brief: dict[str, Any]) -> list[dict[str, str]]:
+    """Strictly validate the additive role-system contract when it is present."""
+
+    issues: list[dict[str, str]] = []
+    style_system = brief.get("style_system")
+    if not isinstance(style_system, dict):
+        return issues
+    expected_preset = str(style_system.get("style_preset") or "").strip()
+    candidates: list[tuple[str, Any]] = []
+    if "renderer_role_systems_v1" in style_system:
+        candidates.append(
+            (
+                "design_brief.style_system.renderer_role_systems_v1",
+                style_system.get("renderer_role_systems_v1"),
+            )
+        )
+    profile = style_system.get("preset_treatment_profile")
+    if isinstance(profile, dict) and "renderer_role_systems_v1" in profile:
+        candidates.append(
+            (
+                "design_brief.style_system.preset_treatment_profile.renderer_role_systems_v1",
+                profile.get("renderer_role_systems_v1"),
+            )
+        )
+    for base, payload in candidates:
+        failures = validate_renderer_role_systems_v1(
+            payload,
+            expected_preset=expected_preset,
+        )
+        issues.extend(_issue(base, "error", failure) for failure in failures)
+    if len(candidates) == 2 and candidates[0][1] != candidates[1][1]:
+        issues.append(
+            _issue(
+                "design_brief.style_system.renderer_role_systems_v1",
+                "error",
+                "must match preset_treatment_profile.renderer_role_systems_v1",
+            )
         )
     return issues
 
@@ -3663,6 +3714,7 @@ def _validate_design_brief(
     issues.extend(_validate_choice_resolution_contract(brief))
     issues.extend(_validate_style_preset(brief))
     issues.extend(_validate_style_treatments(brief))
+    issues.extend(_validate_renderer_role_systems_contract(brief))
 
     if not str(brief.get("format_promise") or "").strip():
         issues.append(_issue("design_brief.format_promise", "warning", "missing format promise"))

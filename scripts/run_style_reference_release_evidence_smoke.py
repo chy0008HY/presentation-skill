@@ -535,6 +535,8 @@ def main() -> int:
         else {}
     )
     for field, minimum in {
+        "page_system": 6,
+        "structural_motif": 13,
         "title_layout": 4,
         "footer_mode": 2,
         "chart_treatment": 3,

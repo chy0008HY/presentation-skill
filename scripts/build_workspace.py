@@ -1197,6 +1197,7 @@ _DECK_STYLE_SCALAR_KEYS = {
     "style_seed",
     "visual_density",
     "page_system",
+    "structural_motif",
     "header_mode",
     "header_variant",
     "header_rule_color",
@@ -1221,6 +1222,12 @@ _DECK_STYLE_SCALAR_KEYS = {
 _STYLE_ENUM_VALUES = {
     "visual_density": {"low", "medium", "high"},
     "page_system": {"clinical-rail", "board-ledger", "editorial-field", "command-canvas", "lab-plate", "investor-thesis", "none"},
+    "structural_motif": {
+        "clinical-stages", "board-index", "field-notes", "thesis-window",
+        "workflow-brackets", "case-margin", "journal-folio", "editorial-rule",
+        "open-coordinate", "proof-stage", "incident-rail", "signal-grid",
+        "assay-register", "none",
+    },
     "header_mode": {"bar", "stack", "eyebrow", "lab-clean", "lab-card"},
     "header_variant": {
         "auto",
@@ -1238,6 +1245,18 @@ _STYLE_ENUM_VALUES = {
         "poster",
         "masthead",
         "light-atlas",
+        "broadsheet",
+        "telemetry-board",
+    },
+    "composition_grammar": {
+        "consulting-answer-pyramid",
+        "scientific-evidence-plate",
+        "clinical-care-pathway",
+        "editorial-spread",
+        "investor-thesis-stage",
+        "operations-grid",
+        "policy-public-docket",
+        "technical-telemetry-canvas",
     },
     "title_motif": {"orbit", "network", "editorial", "none"},
     "section_motif": {"rail-dots", "numbered-tabs", "plain", "none"},
@@ -1547,6 +1566,7 @@ def _deck_style_from_design_brief(brief: Any) -> dict[str, Any]:
         style["header_variant"] = "auto"
     for style_key, pool_key in (
         ("page_system", "page_system_pool"),
+        ("structural_motif", "structural_motif_pool"),
         ("title_layout", "title_layout_pool"),
         ("section_motif", "section_motif_pool"),
         ("timeline_mode", "timeline_mode_pool"),

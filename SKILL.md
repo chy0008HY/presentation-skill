@@ -38,6 +38,8 @@ Then load one task-specific reference:
 - Data/figure workflow: `references/reproducible_workflow.md`
 - Style inspiration or screenshot/template matching:
   `references/style_reference_catalog.md`
+- Structural diversity or topic-to-grammar routing:
+  `references/composition_grammar_catalog.md`
 - PptxGenJS renderer changes: `references/pptxgenjs.md`
 - Fresh-eyes rendered QA: `references/visual_qa_prompt.md`
 
@@ -184,6 +186,37 @@ Use the style corpus as retrieval memory:
   compositions.
 - Never copy proprietary slides, logos, text, or distinctive geometry.
 - Record public-source rights posture when adding reusable inspiration.
+
+For non-trivial decks, resolve a composition grammar before outline authoring:
+
+```bash
+python3 scripts/composition_grammar_catalog.py \
+  --topic "Deck topic" \
+  --user-prompt "Original request" \
+  --style-preset <preset>
+```
+
+The catalog exposes eight first-class grammars: Answer Pyramid, Evidence
+Plate, Care Pathway, Editorial Spread, Thesis Stage, Operating Grid, Public
+Docket, and Telemetry Canvas. Each grammar owns role systems for title,
+section, evidence, comparison, data, decision, and references plus a narrative
+arc, grid, density, reading path, invariants, and forbidden moves. Normal
+workspace initialization stores this as `renderer_role_systems_v1` inside the
+style execution plan and planning files.
+
+Keep the primary grammar's frame, navigation, and reading path coherent. The
+model may choose topic-fit variants and borrow at most two bounded treatment
+moves, but it must not merge complete role systems from unrelated grammars.
+
+When style families appear too similar, run the controlled gate. It renders
+role-complete identical content through every preset, extracts paint-neutral
+semantic geometry, and clusters title, section, evidence, comparison, chart,
+table, decision, references, and dense-content stress slides independently:
+
+```bash
+python3 scripts/run_controlled_style_diversity_smoke.py --render \
+  --outdir /tmp/presentation-skill-controlled-diversity
+```
 
 Preset-owned page systems create structural identity at thumbnail scale:
 

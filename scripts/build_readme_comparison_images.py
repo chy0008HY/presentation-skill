@@ -27,6 +27,8 @@ CASES = [
 VARIANT_TILE_SOURCES = [
     ("title", "Title", "bold-startup-narrative", "title"),
     ("section", "Section", "_section", "section"),
+    ("standard", "Standard", "arctic-minimal", "standard"),
+    ("cards-2", "Cards 2", "warm-terracotta", "cards-2"),
     ("cards-3", "Cards 3", "bold-startup-narrative", "cards-3"),
     ("split", "Split", "editorial-minimal", "split"),
     ("timeline", "Timeline", "charcoal-safety", "timeline"),
@@ -35,9 +37,12 @@ VARIANT_TILE_SOURCES = [
     ("comparison-2col", "Comparison", "lab-report", "comparison-2col"),
     ("matrix", "Matrix", "lavender-ops", "matrix"),
     ("chart", "Chart", "data-heavy-boardroom", "chart"),
+    ("table", "Table", "data-heavy-boardroom", "table"),
     ("lab-run-results", "Lab Results", "lab-report", "lab-run-results"),
+    ("image-sidebar", "Image Sidebar", "arctic-minimal", "image-sidebar"),
     ("scientific-figure", "Scientific Figure", "paper-journal", "scientific-figure"),
     ("flow", "Mermaid Flow", "midnight-neon", "flow"),
+    ("generated-image", "Generated Image", "_generated", "generated-image"),
 ]
 
 STYLE_TILE_SOURCES = [
@@ -190,6 +195,97 @@ def _section_image(out_dir: Path, *, render_section: bool) -> Path | None:
     return path if path.exists() else None
 
 
+def _run_generated_image_render(out_dir: Path) -> Path | None:
+    if not shutil.which("node") or not shutil.which("soffice"):
+        return None
+    output = out_dir / "readme_generated_image_example.jpg"
+    with tempfile.TemporaryDirectory(prefix="presentation-skill-generated-image-") as tmp:
+        tmp_path = Path(tmp)
+        image_path = tmp_path / "synthetic_concept.png"
+        concept = Image.new("RGB", (1200, 675), "#e8f4f5")
+        draw = ImageDraw.Draw(concept)
+        draw.rectangle((70, 70, 1130, 605), outline="#0f766e", width=5)
+        draw.line((140, 500, 340, 390, 540, 430, 760, 250, 1020, 180), fill="#0f766e", width=12)
+        for x, y in [(140, 500), (340, 390), (540, 430), (760, 250), (1020, 180)]:
+            draw.ellipse((x - 18, y - 18, x + 18, y + 18), fill="#f59e0b")
+        _text(draw, (120, 105), "SYNTHETIC CONCEPT VISUAL", size=34, fill="#0f172a", bold=True)
+        _text(draw, (120, 555), "Generated locally for renderer coverage", size=22, fill="#475569")
+        concept.save(image_path)
+        outline_path = tmp_path / "outline.json"
+        outline_path.write_text(
+            json.dumps(
+                {
+                    "slides": [
+                        {
+                            "type": "content",
+                            "variant": "generated-image",
+                            "title": "Generated concept visual",
+                            "subtitle": "Standalone, labeled, and removable",
+                            "assets": {"generated_image": str(image_path)},
+                            "image_generation": {
+                                "prompt": "Synthetic trend concept used for renderer coverage.",
+                                "model": "local-synthetic-fixture",
+                                "purpose": "Positive generated-image rendering proof",
+                            },
+                        }
+                    ]
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        pptx_path = tmp_path / "generated_image_example.pptx"
+        render_dir = tmp_path / "renders"
+        subprocess.run(
+            [
+                "node",
+                str(REPO / "scripts/build_deck_pptxgenjs.js"),
+                "--outline",
+                str(outline_path),
+                "--output",
+                str(pptx_path),
+                "--style-preset",
+                "arctic-minimal",
+            ],
+            cwd=REPO,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        subprocess.run(
+            [
+                "python3",
+                str(REPO / "scripts/render_slides.py"),
+                "--input",
+                str(pptx_path),
+                "--outdir",
+                str(render_dir),
+                "--format",
+                "jpeg",
+            ],
+            cwd=REPO,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        rendered = render_dir / "slide-01.jpg"
+        if rendered.exists():
+            output.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(rendered, output)
+            return output
+    return None
+
+
+def _generated_image(out_dir: Path) -> Path | None:
+    path = out_dir / "readme_generated_image_example.jpg"
+    try:
+        rendered = _run_generated_image_render(out_dir)
+        if rendered:
+            return rendered
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    return path if path.exists() else None
+
+
 def _tile_from_path(path: Path | None, size: tuple[int, int], label: str) -> Image.Image:
     if path and path.exists():
         image = Image.open(path).convert("RGB")
@@ -273,21 +369,29 @@ def _build_variant_proof(summary_path: Path, out_dir: Path, *, render_section: b
         return out_path
     records = _load_gallery_records(summary_path)
     section = _section_image(out_dir, render_section=render_section)
+    generated = _generated_image(out_dir)
     tiles: list[tuple[str, str, Image.Image]] = []
     for variant, label, preset, source_variant in VARIANT_TILE_SOURCES:
-        path = section if preset == "_section" else _record_variant_image(records, preset, source_variant)
-        source = "rendered example" if preset == "_section" else preset.replace("-", " ")
+        if preset == "_section":
+            path = section
+        elif preset == "_generated":
+            path = generated
+        else:
+            path = _record_variant_image(records, preset, source_variant)
+        source = "rendered example" if preset.startswith("_") else preset.replace("-", " ")
         tiles.append((label, source, _tile_from_path(path, (280, 158), variant)))
     return _build_tile_board(
-        title="13 variants, not one bullet-list template",
-        subtitle="Rendered samples across title, section, data, figure, flow, KPI, matrix, and comparison layouts.",
+        title="18 forms, not one bullet-list template",
+        subtitle="Rendered samples across title, section, narrative, data, figure, process, decision, and generated-image layouts.",
         tiles=tiles,
         out_path=out_path,
     )
 
 
-def _build_style_family_proof(summary_path: Path, out_dir: Path) -> Path:
+def _build_style_family_proof(summary_path: Path, out_dir: Path, *, rebuild_from_gallery: bool = False) -> Path:
     out_path = out_dir / "presentation_skill_style_family_proof.png"
+    if out_path.exists() and not rebuild_from_gallery:
+        return out_path
     if not summary_path.exists() and out_path.exists():
         return out_path
     records = _load_gallery_records(summary_path)
@@ -382,6 +486,11 @@ def main() -> int:
         action="store_true",
         help="Refresh the section-divider thumbnail from examples/outline.json.",
     )
+    parser.add_argument(
+        "--rebuild-style-family-from-gallery",
+        action="store_true",
+        help="Replace the controlled same-content proof with the older gallery-selected style board.",
+    )
     args = parser.parse_args()
 
     source_dir = Path(args.source_dir).expanduser().resolve()
@@ -391,7 +500,11 @@ def main() -> int:
         _build_hero(source_dir, out_dir),
         _build_three_case_sheet(source_dir, out_dir),
         _build_variant_proof(gallery_summary, out_dir, render_section=args.render_section),
-        _build_style_family_proof(gallery_summary, out_dir),
+        _build_style_family_proof(
+            gallery_summary,
+            out_dir,
+            rebuild_from_gallery=args.rebuild_style_family_from_gallery,
+        ),
     ]
     for path in outputs:
         print(path)

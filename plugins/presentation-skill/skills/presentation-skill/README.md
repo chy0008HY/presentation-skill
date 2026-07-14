@@ -5,10 +5,11 @@ A skill for coding agents that produces editable PowerPoint decks from structure
 [![Release](https://img.shields.io/github/v/release/siril9/presentation-skill?sort=semver)](https://github.com/siril9/presentation-skill/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-111827.svg)](LICENSE)
 [![Built with pptxgenjs](https://img.shields.io/badge/renderer-pptxgenjs-2563eb.svg)](templates/pptxgenjs/README.md)
+[![skills.sh](https://skills.sh/b/siril9/presentation-skill)](https://skills.sh/siril9/presentation-skill)
 
 ![presentation-skill variant proof board](decks/native-vs-latest-random-topics-20260623/readme_images/presentation_skill_variant_proof.png)
 
-*Rendered samples across the renderer variants, from title and section slides to lab tables, figures, KPI, matrix, chart, comparison, and flow layouts.*
+*Representative rendered samples across title, section, evidence, data, comparison, decision, and process layouts.*
 
 Ask an agent for a lab report, board memo, investor update, clinical dashboard, policy brief, or scientific figure deck. The skill writes source JSON, routes style and content structure, builds an editable `.pptx`, and runs QA instead of shipping a screenshot or a stack of centered bullets.
 
@@ -37,8 +38,9 @@ Skill name: `presentation-skill`. Aliases for fuzzy skill matching and search: `
 
 ## What's actually in the box
 
-- **A pptxgenjs renderer with 13 slide variants.** `title`, `section`, `cards-3`, `split`, `timeline`, `stats`, `kpi-hero`, `comparison-2col`, `matrix`, `chart`, `lab-run-results`, `scientific-figure`, `flow` (Mermaid). Each variant has its own layout discipline so a deck doesn't collapse into bullet-list-after-bullet-list.
-- **A preset system across 13 style families.** Lab report, executive clinical, board risk memo, investor reveal, editorial report, civic science policy, and so on. Each ships with palette, font pair, density profile, and treatment options.
+- **A pptxgenjs renderer with 16 content variants plus title and section slides.** `standard`, `split`, `cards-2`, `cards-3`, `timeline`, `stats`, `kpi-hero`, `comparison-2col`, `matrix`, `chart`, `table`, `lab-run-results`, `image-sidebar`, `scientific-figure`, `flow` (Mermaid), and `generated-image`. Each variant has its own layout discipline so a deck doesn't collapse into bullet-list-after-bullet-list.
+- **A preset system across 13 style families and 13 structural identities.** Lab report, executive clinical, board risk memo, investor reveal, editorial report, civic science policy, and so on. Each owns a palette, font pair, density profile, content treatments, and persistent geometry motif rather than borrowing one shared set of rails and borders.
+- **Eight first-class composition grammars above the 13 presets.** Answer Pyramid, Evidence Plate, Care Pathway, Editorial Spread, Thesis Stage, Operating Grid, Public Docket, and Telemetry Canvas each own a reading path, grid, title and section topology, evidence system, decision system, references posture, and narrative arc. Presets provide the bounded visual interpretation; the grammar controls how the argument is encountered.
 - **A descriptor-only style corpus (~2,200 records) atomized into a LEGO token atlas.** The corpus carries described palettes, layouts, density patterns, and structural motifs from public deck-like sources (no copied assets). It's processed into 311 composable atoms across 12 atom types (palette, typography, layout_motif, chart_treatment, table_treatment, header_treatment, footer_treatment, decorative_motif, density, arc_beat, rhythm_signature, content_treatment). A composition router queries the atlas to mix and match atoms across families per topic, so decks pull grammar — not just colors — from the corpus.
 - **A three-step QA loop.** Geometric checks (overflow, overlap, density), rendered-image visual inspection on JPGs, and a placeholder-text grep that catches leftover `TODO`/`lorem`/`xxx` strings. The visual-inspection prompt is biased toward finding problems, not confirming the deck looks fine.
 - **Workspace mode for decks you'll rebuild later.** `design_brief.json`, `content_plan.json`, `evidence_plan.json`, `asset_plan.json`, `outline.json`, and `notes.md` live in a folder. Readiness diagnostics tell the agent what to fix next instead of re-running blind.
@@ -47,17 +49,26 @@ Skill name: `presentation-skill`. Aliases for fuzzy skill matching and search: `
 
 ![Model-adaptive Europa signal triage proof deck](examples/model_adaptive_showcase_contact_sheet.jpg)
 
-One source deck, seven content compositions: KPI hero, evidence mosaic, scorecard, figure atlas, native chart, lab ledger, and decision matrix. The page system changes with the content job instead of repeating one card grammar.
+One source deck, seven content compositions: KPI hero, evidence mosaic, scorecard, figure atlas, native chart, lab ledger, and decision matrix. It demonstrates body-composition range and samples several page-system treatments; production decks normally keep one primary page system coherent.
 
-[![presentation-skill style family proof board](decks/native-vs-latest-random-topics-20260623/readme_images/presentation_skill_style_family_proof.png)](https://github.com/siril9/presentation-skill/releases/tag/v0.7.0)
+[![presentation-skill composition grammar proof board](examples/taste_grammar_showcase_contact_sheet.jpg)](https://github.com/siril9/presentation-skill)
 
-The style board samples one rendered slide per preset family so the differences are visible as structure, not only palette.
+One topic, eight different argument systems. Each row shows the cover, section turn, evidence page, and decision page for a grammar selected by audience and evidence shape. The rendered QA now clusters title, section, evidence, comparison, chart, table, decision, references, and dense-content stress slides independently; color and decorative rules do not count as structural diversity.
 
 [![Codex native vs updated presentation-skill comparison](decks/native-vs-latest-random-topics-20260623/readme_images/codex_native_vs_updated_clean_three_topics.png)](https://github.com/siril9/presentation-skill/releases/tag/v0.7.0)
 
 Full release notes and comparison images are in the [v0.7.0 release](https://github.com/siril9/presentation-skill/releases/tag/v0.7.0).
 
 ## Install
+
+### Install with skills.sh
+
+Install the skill for any supported coding agent:
+
+```bash
+npx skills add https://github.com/siril9/presentation-skill \
+  --skill presentation-skill
+```
 
 ### Install as a Codex plugin
 
@@ -116,13 +127,22 @@ For agents, the shortest useful prompt is:
 
 > Use `presentation-skill` to build a 7-slide editable PowerPoint deck. Treat `outline.json` as source, choose a preset that fits the topic, use charts/tables/figures where they help, and run the QA gate before delivery.
 
+To inspect the grammar selected for a topic before authoring:
+
+```bash
+python3 scripts/composition_grammar_catalog.py \
+  --topic "Q3 retention review" \
+  --user-prompt "Board decision with variance chart and owner table" \
+  --style-preset data-heavy-boardroom
+```
+
 ## What people actually build with this
 
 A few concrete use cases this skill is set up for, drawn from the variants and presets it ships with:
 
 - **Lab and clinical data reports.** CSV in, scientific-figure slides with subfigure labels out. `lab-run-results` slides use semantic table coloring (red/green/yellow for pass/fail/status). `image-sidebar` for microscopy panels and workflow diagrams.
 - **Investor and board decks.** `kpi-hero`, `stats`, and `comparison-2col` variants with the `bold-startup-narrative` or `data-heavy-boardroom` presets. Generated charts cropped, slide-sized, and readable before assembly.
-- **Editorial and policy briefs.** `editorial-report` and `civic-science-policy` presets with `cards-3`, `matrix`, and `timeline` variants. Built for proof-burden + audience-posture decks rather than 10-bullet recap slides.
+- **Editorial and policy briefs.** `editorial-minimal`, `paper-journal`, and `warm-terracotta` presets with `image-sidebar`, `matrix`, `timeline`, and concise synthesis variants. Built for proof-burden + audience-posture decks rather than 10-bullet recap slides.
 - **Design gallery testing.** Build the same outline across all 13 presets with multiple header variants to see how a content shape lands in different design families. Useful when you don't know which preset fits a topic.
 
 ## Feedback

@@ -28,6 +28,7 @@ DIRECTORIES = [
     "references",
     "scripts",
     "templates",
+    "tests",
 ]
 
 SCREENSHOTS = {

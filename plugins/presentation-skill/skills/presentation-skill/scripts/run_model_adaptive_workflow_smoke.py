@@ -76,6 +76,25 @@ def main() -> int:
                 raise AssertionError(f"brief exceeded compact prompt budget: {budget}")
             if brief_path.stat().st_size >= packet_path.stat().st_size / 5:
                 raise AssertionError("compact agent brief is not materially smaller than the audit packet")
+            routing = brief.get("routing") if isinstance(brief.get("routing"), dict) else {}
+            grammar = (
+                routing.get("composition_grammar")
+                if isinstance(routing.get("composition_grammar"), dict)
+                else {}
+            )
+            execution_plan = (
+                routing.get("style_execution_plan")
+                if isinstance(routing.get("style_execution_plan"), dict)
+                else {}
+            )
+            if not grammar.get("grammar_id") or not grammar.get("rhythm_pattern"):
+                raise AssertionError("compact brief omitted the resolved composition grammar")
+            if execution_plan.get("schema_version") != "style_execution_plan_v1":
+                raise AssertionError("compact brief omitted style_execution_plan_v1")
+            if len(execution_plan.get("treatment_keys") or []) != 8:
+                raise AssertionError("compact brief omitted treatment-plan coverage")
+            if "Composition grammar:" not in markdown_path.read_text(encoding="utf-8"):
+                raise AssertionError("agent brief markdown omitted the composition grammar")
             before = _sha(brief_path)
             _run(
                 "python3",

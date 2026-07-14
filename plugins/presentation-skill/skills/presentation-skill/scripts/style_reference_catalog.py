@@ -202,8 +202,8 @@ TITLE_ARCHETYPE_LIBRARY: dict[str, dict[str, Any]] = {
     },
     "editorial-minimal": {
         "archetype_id": "editorial-masthead-linebreak-opener",
-        "title_layout": "masthead",
-        "structure": "editorial masthead with deliberate line break and one precise subtitle",
+        "title_layout": "broadsheet",
+        "structure": "asymmetric broadsheet opener with a dominant headline column and compact issue note",
         "required_fields": ["civic or narrative question", "scope", "source posture"],
     },
 }
@@ -1001,7 +1001,7 @@ EXAMPLE_STORYBOARDS: dict[str, dict[str, Any]] = {
         "source_notes": ["Synthetic Q3 operating ledger", "Data cut v0"],
     },
     "sunset-investor": {
-        "topic": "Community solar unit economics memo",
+        "topic": "Community solar economics",
         "title": "Community Solar Unit Economics",
         "subtitle": "Synthetic investor memo: CAC, payback, margin sensitivity, and milestone use of funds.",
         "chart": {
@@ -2711,7 +2711,7 @@ def rank_style_references(text: str, *, limit: int = 5) -> list[dict[str, Any]]:
             "reference": preset_style_reference(preset),
         }
         for score, preset, _reference in selected
-        if score > 0 or limit > 0
+        if score > 0
     ]
 
 
@@ -2773,8 +2773,6 @@ def style_reference_mix_plan(text: str, *, limit: int = 3) -> dict[str, Any]:
     """Return a compact primary-plus-secondary reference plan for hybrid prompts."""
     matches = rank_style_references(text, limit=max(3, limit))
     positive = [match for match in matches if int(match.get("score") or 0) > 0]
-    if not positive and matches:
-        positive = [matches[0]]
     primary = positive[0] if positive else {}
     secondary = [
         match

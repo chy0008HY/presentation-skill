@@ -37,6 +37,21 @@ CHECKS: dict[str, dict[str, str]] = {
         "lane": "style",
         "description": "Deterministic style-mix/header/footer resolution and lab-report header gallery QA.",
     },
+    "composition-grammar": {
+        "script": "run_composition_grammar_catalog_smoke.py",
+        "lane": "style",
+        "description": "Topic-aware 39-route composition catalog, explicit preset locking, and normal-workflow execution plan.",
+    },
+    "renderer-taste": {
+        "script": "run_renderer_taste_smoke.py",
+        "lane": "style",
+        "description": "Masthead restraint, section and generated-image positive rendering, and KPI contrast.",
+    },
+    "controlled-style-diversity": {
+        "script": "run_controlled_style_diversity_smoke.py",
+        "lane": "style",
+        "description": "Thirteen unique structural motifs and color-independent renderer contracts for identical content.",
+    },
     "style-reference-sources": {
         "script": "run_style_reference_sources_smoke.py",
         "lane": "style",
@@ -146,7 +161,7 @@ CHECKS: dict[str, dict[str, str]] = {
 
 PROFILES: dict[str, list[str]] = {
     "routing": ["deck-start", "design-contract", "outline-handoff", "style-router", "workflow"],
-    "style": ["style-mix", "style-reference-sources", "style-reference", "style-reference-starters", "style-reference-resolution", "style-reference-gallery", "style-router", "header-gallery", "layout-polish", "readability-contract", "source-footers", "lab-footer-chrome"],
+    "style": ["style-mix", "composition-grammar", "renderer-taste", "controlled-style-diversity", "style-reference-sources", "style-reference", "style-reference-starters", "style-reference-resolution", "style-reference-gallery", "style-router", "header-gallery", "layout-polish", "readability-contract", "source-footers", "lab-footer-chrome"],
     "data": ["artifact-quality", "figure-whitespace", "data-workflow", "excel-workflow", "artifact-triplet", "artifact-freshness"],
     "rendered": ["rendered-gallery", "style-reference-release", "rendered-data"],
     "core": [
@@ -154,6 +169,9 @@ PROFILES: dict[str, list[str]] = {
         "design-contract",
         "outline-handoff",
         "style-mix",
+        "composition-grammar",
+        "renderer-taste",
+        "controlled-style-diversity",
         "style-reference-sources",
         "style-reference",
         "style-reference-starters",

@@ -122,6 +122,13 @@ Before rendering, choose a deck DNA that controls motif, pacing, density, and
 which variants are allowed. Good decks vary by argument, not by randomizing
 slides:
 
+For non-trivial decks, resolve `style_execution_plan_v1` and its
+`renderer_role_systems_v1` contract before outline authoring. Select one of the
+eight composition grammars from audience, evidence shape, and argument. Keep
+its reading path, grid, frame, and role systems coherent; adapt variants to the
+actual evidence and borrow at most two bounded treatments from secondary
+influences.
+
 - Lab results dashboard: figure/table first, compact semantic fills,
   restrained navy header, captions and interpretation strips. Icons are
   usually wrong here unless they label workflow steps.
@@ -134,12 +141,18 @@ slides:
 - Civic science policy: map/data anchor, policy tradeoff matrix, accessible
   plain-language captions, source lines, and implementation table.
 
-Use `deck_style.header_mode`, `title_layout`, `title_motif`,
+Use `deck_style.page_system`, `structural_motif`, `header_mode`, `title_layout`, `title_motif`,
 `section_motif`, `timeline_mode`, `matrix_mode`, and `stats_mode` only to
 reinforce the chosen DNA. Do not mix multiple DNA patterns in one short deck.
 If the cover uses chips, tags, or stage labels, carry them forward as a small
 system on later slides; a motif that appears only on slide 1 reads as a
 template artifact.
+
+`renderer_role_systems_v1` is the stronger contract. It assigns renderer-real
+systems for title, section, evidence, comparison, data, decision, and
+references and includes the narrative arc, density, grid, reading path,
+invariants, and forbidden moves. Flat treatment fields remain compatible
+fallbacks; they must not override the role system merely to create novelty.
 
 ## Elevation & Depth
 
@@ -153,10 +166,14 @@ Cards may use modest radii only when they do not have edge-attached accents. If 
 
 Title slides must not all share one house template. Pick a cover archetype that
 matches the deck DNA: lab plate, command center, poster, masthead, light atlas,
-or split hero. Content slides use a dark header bar, clean lab header, or
+broadsheet, or split hero. Content slides use a dark header bar, clean lab header, or
 clearly reserved header stack. Generated-image slides must be standalone and
 labeled as generated, with prompt/model/purpose metadata visible so the slide
 can be deleted without affecting the deck narrative.
+
+Do not use an empty translucent rectangle as a substitute for a missing hero
+image or proof object. When no meaningful visual exists, let typography and
+whitespace carry the cover.
 
 Avoid repeating four equal cards as the default rhythm. Use feature-left stats,
 policy bands, open quadrants, staggered timelines, or open editorial events

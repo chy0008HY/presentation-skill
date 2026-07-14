@@ -25,11 +25,20 @@ version, and content-recipe signature.
 The same `header_mode: "lab-clean"` report chrome can be layered over other
 presets when a deck needs a boardroom, editorial, research, or journal palette
 but still wants restrained heading/accent-rule rhythm.
-Page-level structure can use `deck_style.page_system` or slide-level
-`page_system`: `clinical-rail`, `board-ledger`, `editorial-field`,
-`command-canvas`, `lab-plate`, or `investor-thesis`. Presets provide a stable
-default, while slide overrides let the agent change structural grammar when
-the content job changes.
+Deck-level structure is selected through one of eight composition grammars:
+Answer Pyramid, Evidence Plate, Care Pathway, Editorial Spread, Thesis Stage,
+Operating Grid, Public Docket, and Telemetry Canvas. Each grammar provides
+role systems for title, section, evidence, comparison, data, decision, and
+references. Keep its frame, navigation, and reading path coherent across the
+deck; use slide-level treatment overrides only for evidence fit, not to splice
+unrelated page systems together.
+The lower-level `page_system` values remain available for bounded rendering:
+`clinical-rail`, `board-ledger`, `editorial-field`, `command-canvas`,
+`lab-plate`, and `investor-thesis`.
+Each preset also owns a `structural_motif`. These thirteen motif contracts
+change persistent page geometry inside a page system, so related families do
+not differ only by palette. Keep the preset motif unless intentionally
+recomposing the whole structural contract.
 `image-sidebar` supports `analysis-rail`, `evidence-mosaic`, and
 `editorial-atlas` through `image_sidebar_mode`. `comparison-2col` supports
 `open-columns` and metric-led `scorecard` through `comparison_mode`.
@@ -80,12 +89,12 @@ outside the fast path's common bar/line/pie payloads.
 
 ## Style presets
 
-All four canonical preset names are exported:
-
-- `executive-clinical`
-- `bold-startup-narrative`
-- `midnight-neon`
-- `data-heavy-boardroom`
+The renderer exports 13 canonical presets: `arctic-minimal`,
+`bold-startup-narrative`, `charcoal-safety`, `data-heavy-boardroom`,
+`editorial-minimal`, `executive-clinical`, `forest-research`, `lab-report`,
+`lavender-ops`, `midnight-neon`, `paper-journal`, `sunset-investor`, and
+`warm-terracotta`. At most two presets share a composition grammar; the preset
+controls its bounded palette, typography, density, and treatment interpretation.
 
 Each returns `{ bg, bg_dark, surface, text, text_muted, accent_primary,
 accent_secondary, line, font_heading, font_body }`. `surface` and `line` are

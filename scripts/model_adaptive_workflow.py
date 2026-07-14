@@ -171,6 +171,10 @@ def _compact_routes(packet: dict[str, Any], *, user_prompt: str = "") -> dict[st
     style_reference = _as_dict(preset.get("style_reference"))
     mix = _as_dict(style_reference.get("mix_plan"))
     primary = _as_dict(mix.get("primary"))
+    grammar_route = _as_dict(atom.get("composition_grammar_route"))
+    primary_grammar = _as_dict(grammar_route.get("primary"))
+    execution_plan = _as_dict(atom.get("style_execution_plan"))
+    treatment_plan = _as_dict(execution_plan.get("treatment_plan"))
     requested_variants = _requested_variants(user_prompt)
     preferred_variants = []
     for variant in [*_as_list(atom.get("preferred_variants")), *requested_variants]:
@@ -191,6 +195,34 @@ def _compact_routes(packet: dict[str, Any], *, user_prompt: str = "") -> dict[st
             "requested_content_shapes": requested_variants,
             "narrative_arc": _as_list(atom.get("narrative_arc"))[:10],
             "deck_style_delta": _as_dict(atom.get("deck_style_delta")),
+        },
+        "composition_grammar": {
+            "grammar_id": primary_grammar.get("grammar_id"),
+            "lane": primary_grammar.get("lane"),
+            "rhythm_pattern": _as_list(primary_grammar.get("rhythm_pattern"))[:10],
+            "role_variant_map": _as_dict(primary_grammar.get("role_variant_map")),
+            "renderer_bias": _as_dict(primary_grammar.get("renderer_bias")),
+            "distinctive_moves": _as_list(primary_grammar.get("distinctive_moves"))[:7],
+            "max_consecutive_same_variant": primary_grammar.get("max_consecutive_same_variant", 2),
+            "alternatives": [
+                {
+                    "grammar_id": item.get("grammar_id"),
+                    "lane": item.get("lane"),
+                    "style_preset": item.get("style_preset"),
+                }
+                for item in _as_list(grammar_route.get("alternatives"))[:2]
+                if isinstance(item, dict)
+            ],
+        },
+        "style_execution_plan": {
+            "schema_version": execution_plan.get("schema_version"),
+            "resolved_primary_preset": execution_plan.get("resolved_primary_preset"),
+            "explicit_style_lock": execution_plan.get("explicit_style_lock"),
+            "selection_basis": execution_plan.get("selection_basis"),
+            "decision": _as_dict(execution_plan.get("decision")),
+            "deck_style": _as_dict(execution_plan.get("deck_style")),
+            "treatment_keys": list(treatment_plan)[:8],
+            "full_plan_location": "design_brief.json:style_system.style_execution_plan",
         },
         "source_inventory": snapshot.get("source_inventory"),
     }
@@ -318,13 +350,17 @@ def render_agent_brief_markdown(brief: dict[str, Any]) -> str:
     lines.extend(f"{idx}. {item}" for idx, item in enumerate(_as_list(profile.get("workflow")), start=1))
     lines.extend(["", "## Design Route", ""])
     atom = _as_dict(routing.get("atom_seed"))
+    grammar = _as_dict(routing.get("composition_grammar"))
     variants = ", ".join(str(item) for item in _as_list(atom.get("preferred_variants"))) or "choose from the evidence shape"
+    rhythm = " > ".join(str(item) for item in _as_list(grammar.get("rhythm_pattern"))) or "derive from the argument"
     lines.extend(
         [
             f"Primary preset: {primary.get('preset') or 'auto'}",
             f"Background system: {primary.get('background_system') or 'topic-fit'}",
+            f"Composition grammar: {grammar.get('grammar_id') or 'topic-fit'}",
+            f"Rhythm candidates: {rhythm}",
             f"Preferred variants: {variants}",
-            "Use these as candidates, not a mandatory sequence.",
+            "Use the grammar as a coherent starting point, not a mandatory sequence. Keep one page system and borrow at most two bounded secondary moves.",
             "",
             "## Completion Rubric",
             "",

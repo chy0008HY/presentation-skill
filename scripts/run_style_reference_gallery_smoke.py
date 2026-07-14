@@ -29,6 +29,8 @@ REQUIRED_BUCKETS = {
     "decision",
 }
 REQUIRED_RENDERER_FIELDS = {
+    "page_system",
+    "structural_motif",
     "title_layout",
     "footer_mode",
     "chart_treatment",
@@ -37,6 +39,8 @@ REQUIRED_RENDERER_FIELDS = {
     "stats_mode",
     "matrix_mode",
     "summary_callout_mode",
+    "image_sidebar_mode",
+    "comparison_mode",
 }
 
 
@@ -559,11 +563,18 @@ def main() -> int:
             if len(treatment_archetype_owners[treatment_key]) != len(SAMPLE_PRESETS):
                 failures.append(f"gallery {treatment_key} archetype ids are not unique across all presets")
         required_unique_counts = {
+            "page_system": 6,
+            "structural_motif": 13,
             "title_layout": 4,
             "footer_mode": 2,
             "chart_treatment": 3,
             "table_treatment": 4,
             "figure_table_treatment": 4,
+            "stats_mode": 3,
+            "matrix_mode": 2,
+            "summary_callout_mode": 2,
+            "image_sidebar_mode": 3,
+            "comparison_mode": 2,
         }
         for field, minimum in required_unique_counts.items():
             unique_count = len(renderer_field_counts.get(field, {}))

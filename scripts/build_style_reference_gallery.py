@@ -492,7 +492,6 @@ def _preset_tokens(preset: str) -> dict[str, str]:
 
 def _deck_style_for(preset: str, profile: dict[str, Any]) -> dict[str, Any]:
     mix = profile.get("style_mix_matrix") if isinstance(profile.get("style_mix_matrix"), dict) else {}
-    header_pool = [str(item) for item in mix.get("header_variant_pool", []) if str(item).strip()]
     defaults = (
         profile.get("renderer_treatment_defaults")
         if isinstance(profile.get("renderer_treatment_defaults"), dict)
@@ -501,9 +500,8 @@ def _deck_style_for(preset: str, profile: dict[str, Any]) -> dict[str, Any]:
     footer = str(defaults.get("footer_mode") or "standard").strip() or "standard"
     return {
         "style_seed": f"{preset}-reference-gallery",
-        "header_mode": "lab-clean",
-        "header_variant": "auto",
-        "header_variants": header_pool[:4] or ["left-accent", "split-rule", "title-rule", "plain"],
+        "page_system": str(defaults.get("page_system") or "clinical-rail").strip() or "clinical-rail",
+        "structural_motif": str(defaults.get("structural_motif") or "clinical-stages").strip() or "clinical-stages",
         "title_layout": str(defaults.get("title_layout") or "split-hero").strip() or "split-hero",
         "footer_mode": footer,
         "footer_page_numbers": footer == "source-line",
@@ -516,6 +514,10 @@ def _deck_style_for(preset: str, profile: dict[str, Any]) -> dict[str, Any]:
         "stats_mode": str(defaults.get("stats_mode") or "tiles").strip() or "tiles",
         "matrix_mode": str(defaults.get("matrix_mode") or "cards").strip() or "cards",
         "summary_callout_mode": str(defaults.get("summary_callout_mode") or "default").strip() or "default",
+        "image_sidebar_mode": str(defaults.get("image_sidebar_mode") or "analysis-rail").strip()
+        or "analysis-rail",
+        "comparison_mode": str(defaults.get("comparison_mode") or "open-columns").strip()
+        or "open-columns",
     }
 
 
@@ -928,7 +930,7 @@ def _dashboard_slide(
                 }
                 for idx, item in enumerate(facts[:2])
             ],
-            "summary_callout": "Console dashboards show route, state, and next action rather than a generic tile wall.",
+            "summary_callout": "Console dashboards foreground route, state, and next action.",
         }
 
     if variant == "standard":

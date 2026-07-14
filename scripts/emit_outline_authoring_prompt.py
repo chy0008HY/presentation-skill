@@ -228,6 +228,7 @@ def _compact_recipe_library(reference: dict[str, Any]) -> dict[str, Any]:
     recipes = library.get("recipes") if isinstance(library.get("recipes"), dict) else {}
     recipe_archetypes: dict[str, str] = {}
     recipe_slots: dict[str, list[str]] = {}
+    actionable_recipes: dict[str, dict[str, Any]] = {}
     for treatment_key in REQUIRED_CONTENT_TREATMENTS:
         recipe = recipes.get(treatment_key) if isinstance(recipes.get(treatment_key), dict) else {}
         archetype = recipe.get("treatment_archetype") if isinstance(recipe.get("treatment_archetype"), dict) else {}
@@ -237,10 +238,21 @@ def _compact_recipe_library(reference: dict[str, Any]) -> dict[str, Any]:
         slots = recipe.get("required_slots") if isinstance(recipe.get("required_slots"), list) else []
         if slots:
             recipe_slots[treatment_key] = [str(item) for item in slots[:4] if str(item).strip()]
+        if recipe:
+            actionable_recipes[treatment_key] = {
+                "content_goal": recipe.get("content_goal"),
+                "evidence_anchor": recipe.get("evidence_anchor"),
+                "primary_variants": (recipe.get("primary_variants") or [])[:4],
+                "required_slots": (recipe.get("required_slots") or [])[:5],
+                "data_roles": (recipe.get("data_roles") or [])[:5],
+                "source_posture": recipe.get("source_posture"),
+                "authoring_checks": (recipe.get("authoring_checks") or [])[:4],
+            }
     return {
         "library_version": library.get("library_version"),
         "recipe_archetype_ids": recipe_archetypes,
         "required_slots_by_treatment": recipe_slots,
+        "recipes": actionable_recipes,
         "recipe_signatures": library.get("recipe_signatures") if isinstance(library.get("recipe_signatures"), dict) else {},
         "authoring_contract": library.get("authoring_contract") if isinstance(library.get("authoring_contract"), list) else [],
     }
