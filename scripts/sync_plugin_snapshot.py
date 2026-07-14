@@ -32,6 +32,9 @@ DIRECTORIES = [
 ]
 
 SCREENSHOTS = {
+    "v0.9_narrative_structures.jpg": REPO / "examples/v0.9_narrative_structures.jpg",
+    "v0.9_evidence_data_structures.jpg": REPO / "examples/v0.9_evidence_data_structures.jpg",
+    "v0.9_decisions_sources.jpg": REPO / "examples/v0.9_decisions_sources.jpg",
     "presentation_skill_variant_proof.png": REPO
     / "decks/native-vs-latest-random-topics-20260623/readme_images/presentation_skill_variant_proof.png",
     "presentation_skill_style_family_proof.png": REPO

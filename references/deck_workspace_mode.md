@@ -198,6 +198,11 @@ The advancer writes `build/workspace_advance_report.json` and
 only when `--execute` is present, reruns readiness after each command, and
 stops with a compact agent prompt when the next step is a source edit such as
 adding sources, adding visual/evidence anchors, or resolving planning text.
+Readiness commands are non-authoritative display text. Executable actions use
+`deck_action_v1`: a registered `action_id` plus typed parameters. The advancer
+reconstructs the fixed repository operation, requires every path to remain
+inside the active workspace, and rejects legacy commands, unknown actions,
+altered reports, injected flags, and path traversal before process launch.
 The JSON report carries `source_edit_plan`, mapping slide IDs to concrete
 source fields such as `outline.json` `slides[2].sources` or `slides[4]`, plus
 the suggested operation and relevant planning, preflight, QA whitespace, or QA

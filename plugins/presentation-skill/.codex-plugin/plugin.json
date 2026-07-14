@@ -1,6 +1,6 @@
 {
   "name": "presentation-skill",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Source-first PowerPoint/PPTX generation for Codex and ChatGPT agents.",
   "author": {
     "name": "Sirilsengolraj",
@@ -27,7 +27,7 @@
   "interface": {
     "displayName": "presentation-skill",
     "shortDescription": "Build editable PowerPoint decks from JSON with style routing, artifacts, and QA.",
-    "longDescription": "A source-first PowerPoint/PPTX workflow for Codex and ChatGPT agents. The bundled skill writes outline.json, builds editable pptxgenjs decks, routes topics through 13 style families and 13 slide variants, creates chart/table/figure artifacts, and runs QA for geometry, readability, visual review, placeholder text, and reproducibility.",
+    "longDescription": "A source-first PowerPoint/PPTX workflow for Codex and ChatGPT agents. The bundled skill writes outline.json, compiles eight full-deck role-layout grammars into editable pptxgenjs geometry, routes topics through 13 style families, creates chart/table/figure artifacts, and runs QA for geometry, readability, visual review, placeholder text, and reproducibility.",
     "developerName": "Sirilsengolraj",
     "category": "Productivity",
     "capabilities": [
@@ -44,8 +44,9 @@
     ],
     "brandColor": "#2563EB",
     "screenshots": [
-      "./assets/presentation_skill_variant_proof.png",
-      "./assets/presentation_skill_style_family_proof.png",
+      "./assets/v0.9_narrative_structures.jpg",
+      "./assets/v0.9_evidence_data_structures.jpg",
+      "./assets/v0.9_decisions_sources.jpg",
       "./assets/codex_native_vs_updated_clean_three_topics.png"
     ]
   }

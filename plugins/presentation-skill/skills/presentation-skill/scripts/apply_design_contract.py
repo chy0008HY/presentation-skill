@@ -1304,9 +1304,18 @@ def apply_contract(
         "style_atom_composition",
         "style_atom_preferred_variants",
         "style_atom_narrative_arc",
+        "composition_grammar_route",
+        "style_execution_plan",
+        "renderer_role_systems_v1",
+        "renderer_role_contracts_v2",
     ):
         if not _non_empty(style_system.get(key)) and _non_empty(existing_style_system.get(key)):
             style_system[key] = existing_style_system.get(key)
+    profile = _as_dict(style_system.get("preset_treatment_profile"))
+    if not _non_empty(style_system.get("renderer_role_systems_v1")):
+        style_system["renderer_role_systems_v1"] = profile.get("renderer_role_systems_v1")
+    if not _non_empty(style_system.get("renderer_role_contracts_v2")):
+        style_system["renderer_role_contracts_v2"] = profile.get("renderer_role_contracts_v2")
     if not _non_empty(style_system.get("style_atom_composition")) and _non_empty(
         design.get("style_atom_composition")
     ):
@@ -1403,6 +1412,29 @@ def apply_contract(
         touched_fields["design_brief.json"] = design_touched
     if _write_json_if_changed(design_path, design, dry_run=dry_run):
         changed_files.append(str(design_path))
+
+    resolved_role_contracts = _as_dict(style_system.get("renderer_role_contracts_v2"))
+    if resolved_role_contracts:
+        style_contract_path = workspace / "style_contract.json"
+        style_contract_payload = _load_json(style_contract_path, {})
+        if isinstance(style_contract_payload, dict):
+            style_contract_payload["renderer_role_contracts_v2"] = resolved_role_contracts
+            if _write_json_if_changed(style_contract_path, style_contract_payload, dry_run=dry_run):
+                changed_files.append(str(style_contract_path))
+            touched_fields.setdefault("style_contract.json", []).append(
+                "style_contract.renderer_role_contracts_v2"
+            )
+        outline_path = workspace / "outline.json"
+        outline_payload = _load_json(outline_path, {})
+        if isinstance(outline_payload, dict):
+            metadata = outline_payload.setdefault("metadata", {})
+            if isinstance(metadata, dict):
+                metadata["renderer_role_contracts_v2"] = resolved_role_contracts
+                if _write_json_if_changed(outline_path, outline_payload, dry_run=dry_run):
+                    changed_files.append(str(outline_path))
+                touched_fields.setdefault("outline.json", []).append(
+                    "outline.metadata.renderer_role_contracts_v2"
+                )
 
     sequence = _as_list(structure.get("slide_sequence"))
     slide_plan = _slide_plan_from(sequence)

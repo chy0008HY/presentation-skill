@@ -831,6 +831,10 @@ reason. When accepted or refined, persist the atom replay ledger under
 `reproducibility_contract.style_replay.atom_composition`, and the relevant
 `structure_blueprint` variant/narrative fields. Use only supported renderer
 fields from `deck_style_delta`; never copy external slide geometry.
+Copy `renderer_role_contracts_v2` exactly from the selected atom workflow
+context. Do not invent coordinates or mutate its canonical role contracts;
+slide-level choice is limited to `role_layout_variant` primary, alternate, or
+dense.
 
 Return this JSON shape:
 
@@ -1031,6 +1035,7 @@ Return this JSON shape:
     }},
     "style_atom_preferred_variants": ["ordered supported variants from accepted/refined atom route"],
     "style_atom_narrative_arc": ["ordered story beats from accepted/refined atom route"],
+    "renderer_role_contracts_v2": null,
     "renderer_treatment_defaults": {{
       "title_layout": "split-hero | lab-plate | command-center | poster | masthead | light-atlas",
       "footer_mode": "standard | source-line",

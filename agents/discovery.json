@@ -1,7 +1,7 @@
 {
   "schema": "presentation_skill_discovery_v1",
   "name": "presentation-skill",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "license": "MIT",
   "repository": "https://github.com/siril9/presentation-skill",
   "summary": "Source-first PowerPoint/PPTX generation skill for Codex, ChatGPT, and OpenAI-style agents.",
@@ -45,8 +45,9 @@
   "capabilities": [
     "editable PowerPoint generation from outline.json",
     "workspace mode with design_brief.json, content_plan.json, evidence_plan.json, asset_plan.json, outline.json, and notes.md",
-    "13 renderer slide variants",
+    "16 renderer content variants plus title and section slides",
     "13 style families",
+    "eight full-deck role-layout grammars with bounded structural variants",
     "descriptor-only style corpus and atom routing",
     "chart, table, figure, lab-run-results, scientific-figure, KPI, comparison, matrix, timeline, and Mermaid flow slides",
     "generated data artifact scaffolding from local tabular data",
@@ -60,10 +61,12 @@
     "readme": "README.md"
   },
   "proof_assets": {
-    "variant_board": "decks/native-vs-latest-random-topics-20260623/readme_images/presentation_skill_variant_proof.png",
-    "style_family_board": "decks/native-vs-latest-random-topics-20260623/readme_images/presentation_skill_style_family_proof.png",
+    "narrative_structures": "examples/v0.9_narrative_structures.jpg",
+    "evidence_data_structures": "examples/v0.9_evidence_data_structures.jpg",
+    "decisions_sources": "examples/v0.9_decisions_sources.jpg",
+    "editable_gallery": "examples/v0.9_full_deck_taste_grammar_gallery.pptx",
     "native_vs_updated": "decks/native-vs-latest-random-topics-20260623/readme_images/codex_native_vs_updated_clean_three_topics.png",
-    "release_url": "https://github.com/siril9/presentation-skill/releases/tag/v0.8.0"
+    "release_url": "https://github.com/siril9/presentation-skill/releases/tag/v0.9.0"
   },
   "default_commands": {
     "build_example": "node scripts/build_deck_pptxgenjs.js --outline examples/outline.json --output out.pptx --style-preset executive-clinical",

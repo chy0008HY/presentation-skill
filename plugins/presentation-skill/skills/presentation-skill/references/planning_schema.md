@@ -101,6 +101,23 @@ Recommended shape:
     "invariant_moves": ["..."],
     "forbidden_moves": ["..."]
   },
+  "renderer_role_contracts_v2": {
+    "schema_version": "renderer_role_contracts_v2",
+    "composition_grammar_id": "one of eight canonical grammar IDs",
+    "roles": {
+      "title": {
+        "system_id": "grammar-specific role system",
+        "role": "title",
+        "layout_family": "color-independent geometry family",
+        "reading_order": ["semantic_slot"],
+        "anchor_slot": "semantic_slot",
+        "density": {"level": "low | medium | medium-high | high", "max_items": 4},
+        "supported_variants": ["primary", "alternate", "dense"],
+        "fallback": {"version": "renderer_role_systems_v1", "system_id": "..."},
+        "slots": {"semantic_slot": [0.0, 0.0, 1.0, 1.0]}
+      }
+    }
+  },
   "style_mix_matrix": {
     "header_variant_pool": ["left-accent", "split-rule", "title-rule", "side-rail", "top-bottom-rule", "plain"],
     "title_layout_pool": ["split-hero", "lab-plate", "command-center", "poster", "masthead", "light-atlas", "broadsheet"],

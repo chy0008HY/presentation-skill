@@ -13,6 +13,7 @@ from typing import Any, Callable
 
 from design_tokens import available_presets
 from taste_grammar_catalog import validate_renderer_role_systems_v1
+from role_layout_contracts import validate_renderer_role_contracts_v2
 
 
 SUPPORTED_STYLE_PRESET_NAMES = {str(name).strip().lower(): str(name).strip() for name in available_presets()}
@@ -2709,7 +2710,7 @@ def _validate_style_treatments(brief: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def _validate_renderer_role_systems_contract(brief: dict[str, Any]) -> list[dict[str, str]]:
-    """Strictly validate the additive role-system contract when it is present."""
+    """Strictly validate additive v1 role systems and v2 role contracts."""
 
     issues: list[dict[str, str]] = []
     style_system = brief.get("style_system")
@@ -2746,6 +2747,43 @@ def _validate_renderer_role_systems_contract(brief: dict[str, Any]) -> list[dict
                 "must match preset_treatment_profile.renderer_role_systems_v1",
             )
         )
+    v2_candidates: list[tuple[str, Any]] = []
+    if "renderer_role_contracts_v2" in style_system:
+        v2_candidates.append(
+            (
+                "design_brief.style_system.renderer_role_contracts_v2",
+                style_system.get("renderer_role_contracts_v2"),
+            )
+        )
+    if isinstance(profile, dict) and "renderer_role_contracts_v2" in profile:
+        v2_candidates.append(
+            (
+                "design_brief.style_system.preset_treatment_profile.renderer_role_contracts_v2",
+                profile.get("renderer_role_contracts_v2"),
+            )
+        )
+    for base, payload in v2_candidates:
+        failures = validate_renderer_role_contracts_v2(payload, expected_preset=expected_preset)
+        issues.extend(_issue(base, "error", failure) for failure in failures)
+    if len(v2_candidates) == 2 and v2_candidates[0][1] != v2_candidates[1][1]:
+        issues.append(
+            _issue(
+                "design_brief.style_system.renderer_role_contracts_v2",
+                "error",
+                "must match preset_treatment_profile.renderer_role_contracts_v2",
+            )
+        )
+    if candidates and v2_candidates:
+        v1_grammar = str(candidates[0][1].get("composition_grammar_id") or "") if isinstance(candidates[0][1], dict) else ""
+        v2_grammar = str(v2_candidates[0][1].get("composition_grammar_id") or "") if isinstance(v2_candidates[0][1], dict) else ""
+        if v1_grammar and v2_grammar and v1_grammar != v2_grammar:
+            issues.append(
+                _issue(
+                    "design_brief.style_system.renderer_role_contracts_v2.composition_grammar_id",
+                    "error",
+                    "must match renderer_role_systems_v1.composition_grammar_id",
+                )
+            )
     return issues
 
 

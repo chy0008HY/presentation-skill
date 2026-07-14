@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import copy
+import json
+import subprocess
 import sys
+import tempfile
 import unittest
 from collections import Counter
 from pathlib import Path
@@ -18,6 +21,7 @@ from composition_grammar_catalog import (  # noqa: E402
     validate_composition_grammar_catalog,
 )
 from init_deck_workspace import _design_brief_stub, _starter_outline, _style_contract  # noqa: E402
+from office_package_hash import office_package_normalized_sha256  # noqa: E402
 from style_treatment_profiles import (  # noqa: E402
     PROFILE_OVERRIDES,
     RENDERER_TREATMENT_FIELDS,
@@ -32,6 +36,12 @@ from taste_grammar_catalog import (  # noqa: E402
 )
 from validate_planning import _validate_renderer_role_systems_contract  # noqa: E402
 from workflow_atom_context import build_workflow_atom_context, compact_workflow_atom_context  # noqa: E402
+from role_layout_contracts import (  # noqa: E402
+    ROLE_NAMES as V2_ROLE_NAMES,
+    load_role_layout_catalog,
+    renderer_role_contracts_for_preset,
+    validate_renderer_role_contracts_v2,
+)
 
 
 EXPECTED_GRAMMARS = {
@@ -81,6 +91,10 @@ class TasteGrammarCatalogTests(unittest.TestCase):
                 self.assertFalse(
                     validate_renderer_role_systems_v1(role_systems, expected_preset=preset)
                 )
+                role_contracts = profile["renderer_role_contracts_v2"]
+                self.assertFalse(
+                    validate_renderer_role_contracts_v2(role_contracts, expected_preset=preset)
+                )
 
     def test_routing_honors_preset_lock_and_exposes_role_contract(self) -> None:
         route = route_composition_grammars(
@@ -91,6 +105,7 @@ class TasteGrammarCatalogTests(unittest.TestCase):
         primary = route["primary"]
         self.assertEqual(primary["grammar_id"], "scientific-evidence-plate")
         self.assertEqual(primary["renderer_role_systems_v1"]["schema_version"], "renderer_role_systems_v1")
+        self.assertEqual(primary["renderer_role_contracts_v2"]["schema_version"], "renderer_role_contracts_v2")
         for role in ("title", "section", "evidence", "comparison", "data", "decision", "references"):
             self.assertTrue(primary[f"{role}_system_id"])
         self.assertTrue(primary["narrative_arc"])
@@ -114,6 +129,12 @@ class TasteGrammarCatalogTests(unittest.TestCase):
         self.assertEqual(
             context["style_execution_plan"]["renderer_role_systems_v1"],
             role_systems,
+        )
+        role_contracts = context["renderer_role_contracts_v2"]
+        self.assertEqual(role_contracts["composition_grammar_id"], "clinical-care-pathway")
+        self.assertEqual(
+            context["style_execution_plan"]["renderer_role_contracts_v2"],
+            role_contracts,
         )
 
         brief = _design_brief_stub(
@@ -140,6 +161,9 @@ class TasteGrammarCatalogTests(unittest.TestCase):
         self.assertEqual(brief["style_system"]["renderer_role_systems_v1"], role_systems)
         self.assertEqual(outline["metadata"]["renderer_role_systems_v1"], role_systems)
         self.assertEqual(contract["renderer_role_systems_v1"], role_systems)
+        self.assertEqual(brief["style_system"]["renderer_role_contracts_v2"], role_contracts)
+        self.assertEqual(outline["metadata"]["renderer_role_contracts_v2"], role_contracts)
+        self.assertEqual(contract["renderer_role_contracts_v2"], role_contracts)
         self.assertFalse(_validate_renderer_role_systems_contract(brief))
 
     def test_strict_validation_rejects_unknown_or_inconsistent_system_ids(self) -> None:
@@ -162,6 +186,105 @@ class TasteGrammarCatalogTests(unittest.TestCase):
             self.assertEqual(
                 renderer_role_systems_for_preset(preset)["composition_grammar_id"],
                 PRESET_TO_GRAMMAR[preset],
+            )
+
+    def test_v2_catalog_has_eight_unique_non_overlapping_layouts_per_role(self) -> None:
+        catalog = load_role_layout_catalog()
+        self.assertEqual(len(catalog["grammars"]), 8)
+        for role in V2_ROLE_NAMES:
+            systems = {grammar[role]["system_id"] for grammar in catalog["grammars"].values()}
+            families = {grammar[role]["layout_family"] for grammar in catalog["grammars"].values()}
+            self.assertEqual(len(systems), 8, role)
+            self.assertEqual(len(families), 8, role)
+
+    def test_v2_validation_rejects_arbitrary_coordinates(self) -> None:
+        payload = renderer_role_contracts_for_preset("lab-report")
+        broken = copy.deepcopy(payload)
+        broken["roles"]["evidence"]["slots"]["evidence_0"] = [0, 0, 1.4, 1]
+        failures = validate_renderer_role_contracts_v2(broken, expected_preset="lab-report")
+        self.assertTrue(failures)
+
+    def test_legacy_workspace_upgrade_is_explicit_and_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            v1 = renderer_role_systems_for_preset("lab-report")
+            (workspace / "design_brief.json").write_text(
+                json.dumps({"style_system": {"style_preset": "lab-report", "renderer_role_systems_v1": v1}}),
+                encoding="utf-8",
+            )
+            (workspace / "style_contract.json").write_text(
+                json.dumps({"workspace_version": 1, "build": {"style_preset": "lab-report"}, "renderer_role_systems_v1": v1}),
+                encoding="utf-8",
+            )
+            (workspace / "outline.json").write_text(
+                json.dumps({"metadata": {"renderer_role_systems_v1": v1}, "slides": []}),
+                encoding="utf-8",
+            )
+            command = [
+                sys.executable,
+                str(SCRIPTS / "upgrade_renderer_role_contracts_v2.py"),
+                "--workspace",
+                str(workspace),
+            ]
+            first = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            first_payload = json.loads(first.stdout)
+            self.assertEqual(set(first_payload["changed_files"]), {"design_brief.json", "style_contract.json", "outline.json"})
+            style_contract = json.loads((workspace / "style_contract.json").read_text(encoding="utf-8"))
+            self.assertEqual(style_contract["workspace_version"], 1)
+            snapshots = {path.name: path.read_bytes() for path in workspace.glob("*.json")}
+            second = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+            second_payload = json.loads(second.stdout)
+            self.assertEqual(second_payload["changed_files"], [])
+            self.assertEqual(snapshots, {path.name: path.read_bytes() for path in workspace.glob("*.json")})
+
+    def test_v1_only_outline_rebuild_is_normalized_reproducible(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            v1 = renderer_role_systems_for_preset("lab-report")
+            outline = {
+                "title": "Archived assay report",
+                "metadata": {"renderer_role_systems_v1": v1},
+                "slides": [
+                    {
+                        "type": "title",
+                        "role": "title",
+                        "title": "Archived assay report",
+                        "subtitle": "A v1-only reproducibility fixture.",
+                    },
+                    {
+                        "type": "content",
+                        "role": "evidence",
+                        "variant": "stats",
+                        "title": "The archived result remains stable",
+                        "facts": [
+                            {"value": "97%", "label": "Agreement", "detail": "frozen fixture"},
+                            {"value": "3", "label": "Lots", "detail": "same denominator"},
+                            {"value": "0", "label": "Drift", "detail": "normalized package"},
+                        ],
+                    },
+                ],
+            }
+            outline_path = workspace / "outline.json"
+            outline_path.write_text(json.dumps(outline), encoding="utf-8")
+            outputs = [workspace / "first.pptx", workspace / "second.pptx"]
+            for output in outputs:
+                command = [
+                    "node",
+                    str(SCRIPTS / "build_deck_pptxgenjs.js"),
+                    "--outline",
+                    str(outline_path),
+                    "--output",
+                    str(output),
+                    "--style-preset",
+                    "lab-report",
+                ]
+                result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(
+                office_package_normalized_sha256(outputs[0]),
+                office_package_normalized_sha256(outputs[1]),
             )
 
 

@@ -5,12 +5,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
+from pptx import Presentation
 from structural_diversity_v2 import DEFAULT_ROLE_POLICIES, evaluate_manifest
 from style_treatment_profiles import PROFILE_OVERRIDES, RENDERER_TREATMENT_FIELDS, preset_treatment_profile
 from taste_grammar_catalog import PRESET_TO_GRAMMAR
@@ -29,11 +32,20 @@ ROLE_SLIDES = [
     ("references", 8),
     ("dense_title_evidence", 9),
 ]
+PLACEHOLDER_PATTERN = re.compile(
+    r"\b(?:TODO|TBD|XXX|lorem|ipsum)\b|\[(?:insert|placeholder)[^\]]*\]",
+    re.IGNORECASE,
+)
+CRITICAL_LAYOUT_TYPES = {
+    "margin_left",
+    "margin_right",
+    "rounded_card_with_accent_rail",
+}
 
 
-def _run(parts: list[str]) -> str:
+def _run(parts: list[str], *, acceptable_returncodes: tuple[int, ...] = (0,)) -> str:
     result = subprocess.run(parts, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    if result.returncode != 0:
+    if result.returncode not in acceptable_returncodes:
         raise RuntimeError("Command failed:\n" + " ".join(parts) + "\n" + result.stdout)
     return result.stdout
 
@@ -174,7 +186,7 @@ def _outline() -> dict[str, Any]:
                     {"value": "22", "label": "Open", "detail": "one cohort"},
                     {"value": "4d", "label": "Median age", "detail": "down three"},
                     {"value": "2", "label": "Dependencies", "detail": "both owned"},
-                    {"value": "Mon", "label": "Launch", "detail": "audit at 20"},
+                    {"value": "1d", "label": "To launch", "detail": "Monday · audit at 20"},
                 ],
                 "summary_callout": "Long-title resilience matters only if the evidence hierarchy remains legible and structurally distinct.",
                 "footer": footer,
@@ -235,7 +247,27 @@ def _static_contract() -> tuple[dict[str, Any], list[str]]:
     )
 
 
-def _build_case(preset: str, outline_path: Path, outdir: Path, dpi: int, force: bool) -> dict[str, Any]:
+def _placeholder_hits(pptx_path: Path) -> list[dict[str, Any]]:
+    hits: list[dict[str, Any]] = []
+    presentation = Presentation(str(pptx_path))
+    for slide_index, slide in enumerate(presentation.slides, start=1):
+        for shape_index, shape in enumerate(slide.shapes, start=1):
+            text = " ".join(str(getattr(shape, "text", "") or "").split())
+            if text and PLACEHOLDER_PATTERN.search(text):
+                hits.append(
+                    {"slide_index": slide_index, "shape_index": shape_index, "text": text[:160]}
+                )
+    return hits
+
+
+def _build_case(
+    preset: str,
+    outline_path: Path,
+    design_brief_path: Path,
+    outdir: Path,
+    dpi: int,
+    force: bool,
+) -> dict[str, Any]:
     case_dir = outdir / "cases" / preset
     pptx_path = case_dir / f"{preset}.pptx"
     render_dir = case_dir / "renders"
@@ -271,6 +303,44 @@ def _build_case(preset: str, outline_path: Path, outdir: Path, dpi: int, force: 
         images = sorted(render_dir.glob("slide-*.jpg"))
     if len(images) != len(ROLE_SLIDES):
         raise RuntimeError(f"{preset}: rendered_slide_count={len(images)} expected={len(ROLE_SLIDES)}")
+    design_qa_path = case_dir / "design_rules_qa.json"
+    _run(
+        [
+            "python3",
+            "scripts/design_rules_qa.py",
+            "--input",
+            str(pptx_path),
+            "--report",
+            str(design_qa_path),
+            "--design-brief",
+            str(design_brief_path),
+        ],
+        acceptable_returncodes=(0, 1),
+    )
+    layout_qa_path = case_dir / "layout_lint.json"
+    _run(
+        [
+            "python3",
+            "scripts/layout_lint.py",
+            "--input",
+            str(pptx_path),
+            "--output",
+            str(layout_qa_path),
+            "--outline",
+            str(outline_path),
+            "--style-preset",
+            preset,
+        ]
+    )
+    design_qa = json.loads(design_qa_path.read_text(encoding="utf-8"))
+    layout_qa = json.loads(layout_qa_path.read_text(encoding="utf-8"))
+    critical_layout_issues = [
+        issue
+        for slide in layout_qa.get("slides", [])
+        if isinstance(slide, dict)
+        for issue in slide.get("violations", [])
+        if isinstance(issue, dict) and str(issue.get("type") or "") in CRITICAL_LAYOUT_TYPES
+    ]
     return {
         "id": preset,
         "pptx": str(pptx_path),
@@ -278,10 +348,19 @@ def _build_case(preset: str, outline_path: Path, outdir: Path, dpi: int, force: 
             {"role": role, "index": index, "render": str(images[index - 1])}
             for role, index in ROLE_SLIDES
         ],
+        "quality": {
+            "design_qa_report": str(design_qa_path),
+            "design_issue_count": int(design_qa.get("issue_count") or 0),
+            "design_issues": design_qa.get("issues", []),
+            "layout_qa_report": str(layout_qa_path),
+            "critical_layout_issues": critical_layout_issues,
+            "placeholder_hits": _placeholder_hits(pptx_path),
+        },
     }
 
 
 def main() -> int:
+    started_at = time.perf_counter()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--render", action="store_true")
     parser.add_argument("--outdir", type=Path)
@@ -317,12 +396,38 @@ def main() -> int:
         outdir = Path(temporary.name)
     outline_path = outdir / "controlled_role_complete_outline.json"
     outline_path.write_text(json.dumps(_outline(), indent=2) + "\n", encoding="utf-8")
+    design_brief_path = outdir / "controlled_design_brief.json"
+    design_brief_path.write_text(
+        json.dumps(
+            {
+                "readability_contract": {
+                    "min_title_pt": 20.0,
+                    "min_body_pt": 8.0,
+                    "min_caption_pt": 6.5,
+                    "chart_label_min_pt": 7.5,
+                    "footer_reserved_inches": 0.25,
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     deck_entries: list[dict[str, Any]] = []
     build_failures: list[str] = []
     for preset in PRESETS:
         try:
-            deck_entries.append(_build_case(preset, outline_path, outdir, args.dpi, args.force))
+            deck_entries.append(
+                _build_case(
+                    preset,
+                    outline_path,
+                    design_brief_path,
+                    outdir,
+                    args.dpi,
+                    args.force,
+                )
+            )
         except Exception as exc:
             build_failures.append(f"{preset}: {exc}")
     manifest = {
@@ -346,6 +451,32 @@ def main() -> int:
         except Exception as exc:
             evaluator_failure = str(exc)
     all_failures: list[Any] = list(static_failures) + build_failures
+    for deck in deck_entries:
+        quality = deck.get("quality") if isinstance(deck.get("quality"), dict) else {}
+        if int(quality.get("design_issue_count") or 0):
+            all_failures.append(
+                {
+                    "type": "design_qa",
+                    "preset": deck.get("id"),
+                    "issues": quality.get("design_issues", []),
+                }
+            )
+        if quality.get("critical_layout_issues"):
+            all_failures.append(
+                {
+                    "type": "critical_layout",
+                    "preset": deck.get("id"),
+                    "issues": quality.get("critical_layout_issues", []),
+                }
+            )
+        if quality.get("placeholder_hits"):
+            all_failures.append(
+                {
+                    "type": "placeholder_text",
+                    "preset": deck.get("id"),
+                    "hits": quality.get("placeholder_hits", []),
+                }
+            )
     if evaluator_failure:
         all_failures.append(f"structural_evaluator_error: {evaluator_failure}")
     if evaluator_report and not evaluator_report["passed"]:
@@ -359,6 +490,11 @@ def main() -> int:
             "manifest": str(manifest_path),
             "rendered_preset_count": len(deck_entries),
             "structural_evaluator": evaluator_report,
+            "runtime_reference": {
+                "wall_time_ms": round((time.perf_counter() - started_at) * 1000),
+                "enforced": False,
+                "note": "Observational non-regression reference; performance caching is deferred.",
+            },
             "failures": all_failures,
         }
     )
@@ -378,6 +514,7 @@ def main() -> int:
                 if evaluator_report
                 else {},
                 "failure_count": len(all_failures),
+                "runtime_reference": payload["runtime_reference"],
             },
             indent=2,
         )

@@ -15,10 +15,12 @@ presets:
 | `policy-public-docket` | public question -> options -> accountability | docket index | map or option matrix |
 | `technical-telemetry-canvas` | state -> signal -> failure -> recovery | telemetry frame | aligned signals and event log |
 
-Each grammar provides `renderer_role_systems_v1` with system IDs for title,
-section, evidence, comparison, data, decision, and references. It also carries
-one narrative arc, grid, density, reading path, preferred role variants,
-invariant moves, and forbidden moves. A grammar may serve at most two presets.
+Each grammar provides `renderer_role_contracts_v2` with normalized slots for
+title, section, evidence, comparison, chart, table, decision, and references.
+Every role has eight color-independent structural systems across the catalog,
+plus a v1 fallback. The grammar also carries one narrative arc, grid, density,
+reading path, preferred role variants, invariant moves, and forbidden moves.
+A grammar may serve at most two presets.
 
 ## Route A Request
 
@@ -38,10 +40,18 @@ python3 scripts/composition_grammar_catalog.py --summary
 Normal workspace initialization persists the result in:
 
 - `design_brief.json:style_system.renderer_role_systems_v1`
+- `design_brief.json:style_system.renderer_role_contracts_v2`
 - `design_brief.json:style_system.style_execution_plan`
 - `design_brief.json:structure_strategy.composition_grammar`
 - `style_contract.json:renderer_role_systems_v1`
+- `style_contract.json:renderer_role_contracts_v2`
 - `outline.json:metadata.renderer_role_systems_v1`
+- `outline.json:metadata.renderer_role_contracts_v2`
+
+New workspaces persist both compatibility layers and render through v2.
+Existing v1-only workspaces stay pinned. Upgrade explicitly with
+`scripts/upgrade_renderer_role_contracts_v2.py --workspace <path>`; the command
+is idempotent and does not change the workspace version marker.
 
 ## Mixing Rules
 
@@ -53,8 +63,9 @@ Normal workspace initialization persists the result in:
    borrow another grammar's complete cover, frame, or navigation.
 4. Explicit user, brand, accessibility, and evidence constraints override the
    default route and must be recorded.
-5. A slide may override its variant when the evidence shape requires it; keep
-   the grammar's role intent and usable geometry.
+5. A slide may set `role_layout_variant` to `primary`, `alternate`, or `dense`
+   when the evidence shape requires it; arbitrary coordinates are not part of
+   the outline contract.
 6. Avoid repeating one skeleton more than twice unless the repeated evidence
    truly needs synchronized comparison.
 
@@ -67,6 +78,7 @@ python3 scripts/run_controlled_style_diversity_smoke.py --render \
 
 The v2 evaluator ignores color, fills, strokes, and decorative-only shapes. It
 clusters semantic occupancy, topology, anchor geometry, hierarchy/reading
-order, and whitespace zoning for nine controlled roles. Same-grammar pairs may
-form a cluster of two; cross-grammar pairs must not repeat across five or more
-roles. Edge hashes remain diagnostics, not proof of taste.
+order, and whitespace zoning for nine controlled roles. Every role requires
+at least eight clusters, a largest cluster of at most two presets, normalized
+entropy of at least `0.78`, and zero cross-grammar clusters. Edge hashes remain
+diagnostics, not proof of taste.

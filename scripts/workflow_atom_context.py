@@ -16,6 +16,7 @@ from apply_atom_composition import apply_composition
 from composition_grammar_catalog import compact_grammar_route, route_composition_grammars
 from style_atom_router import deterministic_composition, emit_composition_prompt
 from style_reference_catalog import preset_style_reference, style_reference_mix_plan
+from role_layout_contracts import renderer_role_contracts_for_grammar
 
 
 DEFAULT_FAMILY = "executive-clinical"
@@ -162,6 +163,10 @@ def build_workflow_atom_context(
         if isinstance(primary_grammar.get("renderer_role_systems_v1"), dict)
         else {}
     )
+    renderer_role_contracts = renderer_role_contracts_for_grammar(
+        str(primary_grammar.get("grammar_id") or "clinical-care-pathway"),
+        preset=family,
+    )
     grammar_variants = (
         primary_grammar.get("preferred_variants")
         if isinstance(primary_grammar.get("preferred_variants"), list)
@@ -198,6 +203,7 @@ def build_workflow_atom_context(
         "deck_style": deck_style_delta,
         "composition_grammar": primary_grammar,
         "renderer_role_systems_v1": renderer_role_systems,
+        "renderer_role_contracts_v2": renderer_role_contracts,
         "treatment_plan": _compact_treatment_plan(family),
         "secondary_influences": grammar_route.get("alternatives") or [],
     }
@@ -229,6 +235,7 @@ def build_workflow_atom_context(
         "deck_style_delta": deck_style_delta,
         "composition_grammar_route": grammar_route,
         "renderer_role_systems_v1": renderer_role_systems,
+        "renderer_role_contracts_v2": renderer_role_contracts,
         "taste_narrative_arc": renderer_role_systems.get("narrative_arc") or {},
         "style_execution_plan": style_execution_plan,
         "design_brief_delta": {
@@ -259,8 +266,10 @@ def build_workflow_atom_context(
                 "design_brief.json:style_system.style_atom_narrative_arc",
                 "design_brief.json:style_system.composition_grammar_route",
                 "design_brief.json:style_system.renderer_role_systems_v1",
+                "design_brief.json:style_system.renderer_role_contracts_v2",
                 "design_brief.json:structure_strategy.composition_grammar",
                 "style_contract.json:renderer_role_systems_v1",
+                "style_contract.json:renderer_role_contracts_v2",
                 "outline.json:deck_style supported fields from deck_style_delta",
                 "content_plan.json:narrative_arc or slide_plan variants where topic-fit",
             ],
@@ -297,6 +306,7 @@ def compact_workflow_atom_context(context: dict[str, Any], *, include_prompt: bo
         "style_atom_composition": context.get("style_atom_composition"),
         "composition_grammar_route": context.get("composition_grammar_route"),
         "renderer_role_systems_v1": context.get("renderer_role_systems_v1"),
+        "renderer_role_contracts_v2": context.get("renderer_role_contracts_v2"),
         "taste_narrative_arc": context.get("taste_narrative_arc"),
         "style_execution_plan": context.get("style_execution_plan"),
         "normal_workflow_contract": context.get("normal_workflow_contract"),

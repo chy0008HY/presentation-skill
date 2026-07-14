@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from action_registry import ActionRegistryError, resolve_registered_action
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -1244,7 +1245,10 @@ def _compact_action(action: Any) -> dict[str, Any]:
         "priority",
         "action_type",
         "reason",
-        "command",
+        "action_schema_version",
+        "action_id",
+        "parameters",
+        "display_command",
         "slide_ids",
         "planning_paths",
         "suggested_fields",
@@ -1740,7 +1744,7 @@ def _delivery_next_action_prompt(
         readiness.get("next_action") if isinstance(readiness.get("next_action"), dict) else {}
     )
     commands = report.get("commands") if isinstance(report.get("commands"), dict) else {}
-    command = _command_text(action.get("command"))
+    command = _command_text(action.get("display_command"))
     advance_command = _command_text(commands.get("advance"))
     executed_steps = [
         step for step in steps if isinstance(step, dict) and step.get("command_returncode") is not None
@@ -1982,14 +1986,20 @@ def main() -> int:
             exit_code = 1
             break
 
-        command = _normalize_command(action.get("command"))
-        signature = f"{kind}\n{_command_text(command)}"
-        if not command:
-            step_entry["decision"] = "missing_command"
+        try:
+            command = resolve_registered_action(
+                action,
+                repo=repo,
+                workspace=workspace,
+            )
+        except ActionRegistryError as exc:
+            step_entry["decision"] = "action_registry_rejected"
+            step_entry["action_registry_error"] = str(exc)
             steps.append(step_entry)
-            final_decision = "missing_command"
+            final_decision = "action_registry_rejected"
             exit_code = 2
             break
+        signature = f"{kind}\n{_command_text(command)}"
         if not args.execute:
             step_entry["decision"] = "dry_run_command_available"
             steps.append(step_entry)

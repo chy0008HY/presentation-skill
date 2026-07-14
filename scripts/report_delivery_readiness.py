@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from action_registry import materialize_registered_action
 from office_package_hash import (
     OFFICE_PACKAGE_HASH_ALGORITHM,
     is_office_package_path,
@@ -2115,7 +2116,7 @@ def _delivery_markdown(report: dict[str, Any]) -> str:
     lines.append(f"- Planning paths: `{_markdown_list(recommended_next_action.get('planning_paths'))}`")
     lines.append(f"- Warning types: `{_markdown_list(recommended_next_action.get('warning_types'))}`")
     lines.append(f"- Suggested fields: `{_markdown_list(recommended_next_action.get('suggested_fields'))}`")
-    action_command = _command_text(recommended_next_action.get("command"))
+    action_command = _command_text(recommended_next_action.get("display_command"))
     if action_command:
         lines.append(f"- Action command: `{action_command}`")
     advance_command = _command_text(commands.get("advance"))
@@ -2475,6 +2476,11 @@ def main() -> int:
         visual_review_build_command=commands["visual_review_build"],
         warning_metadata=warning_metadata,
         acceptance_evidence=acceptance_evidence,
+    )
+    recommended_next_action = materialize_registered_action(
+        recommended_next_action,
+        repo=_repo_root(),
+        workspace=workspace,
     )
     report = {
         "schema_version": 1,

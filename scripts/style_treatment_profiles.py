@@ -9,6 +9,7 @@ from typing import Any
 
 from style_reference_catalog import preset_style_reference
 from taste_grammar_catalog import renderer_role_systems_for_preset
+from role_layout_contracts import renderer_role_contracts_for_preset
 
 
 PROFILE_VERSION = "deck_preset_treatment_profiles_v1"
@@ -483,6 +484,7 @@ def preset_treatment_profile(preset: str) -> dict[str, Any]:
     )
     renderer_defaults = renderer_treatment_defaults_from_mix(key, mix)
     renderer_role_systems = renderer_role_systems_for_preset(key)
+    renderer_role_contracts = renderer_role_contracts_for_preset(key)
     profile = {
         "profile_version": PROFILE_VERSION,
         "style_preset": key,
@@ -498,6 +500,7 @@ def preset_treatment_profile(preset: str) -> dict[str, Any]:
         "renderer_treatment_defaults": renderer_defaults,
         "renderer_treatment_signature": renderer_treatment_summary(renderer_defaults)["signature"],
         "renderer_role_systems_v1": renderer_role_systems,
+        "renderer_role_contracts_v2": renderer_role_contracts,
         "best_for": list(override.get("best_for", ["general presentations", "structured reports"])),
         "avoid": list(override.get("avoid", ["unsupported renderer treatments", "unreadable text"])),
     }

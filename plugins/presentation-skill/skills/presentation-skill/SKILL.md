@@ -201,8 +201,20 @@ Plate, Care Pathway, Editorial Spread, Thesis Stage, Operating Grid, Public
 Docket, and Telemetry Canvas. Each grammar owns role systems for title,
 section, evidence, comparison, data, decision, and references plus a narrative
 arc, grid, density, reading path, invariants, and forbidden moves. Normal
-workspace initialization stores this as `renderer_role_systems_v1` inside the
-style execution plan and planning files.
+workspace initialization stores the matching `renderer_role_contracts_v2`
+inside the style execution plan and planning files. The v2 contract gives
+title, section, evidence, comparison, chart, table, decision, and references
+their own normalized semantic slots and fallback. Slides may request only the
+bounded `role_layout_variant` values `primary`, `alternate`, or `dense`; do not
+invent coordinates in `outline.json`.
+
+Archived workspaces that contain only `renderer_role_systems_v1` remain pinned
+to v1. Upgrade one explicitly and idempotently with:
+
+```bash
+python3 scripts/upgrade_renderer_role_contracts_v2.py \
+  --workspace decks/my-deck
+```
 
 Keep the primary grammar's frame, navigation, and reading path coherent. The
 model may choose topic-fit variants and borrow at most two bounded treatment
@@ -211,7 +223,10 @@ moves, but it must not merge complete role systems from unrelated grammars.
 When style families appear too similar, run the controlled gate. It renders
 role-complete identical content through every preset, extracts paint-neutral
 semantic geometry, and clusters title, section, evidence, comparison, chart,
-table, decision, references, and dense-content stress slides independently:
+table, decision, references, and dense-content stress slides independently.
+Every role must produce at least eight clusters across the 13 presets, no
+cluster may exceed two presets, normalized entropy must be at least `0.78`,
+and cross-grammar clusters fail:
 
 ```bash
 python3 scripts/run_controlled_style_diversity_smoke.py --render \

@@ -123,7 +123,7 @@ which variants are allowed. Good decks vary by argument, not by randomizing
 slides:
 
 For non-trivial decks, resolve `style_execution_plan_v1` and its
-`renderer_role_systems_v1` contract before outline authoring. Select one of the
+`renderer_role_contracts_v2` contract before outline authoring. Select one of the
 eight composition grammars from audience, evidence shape, and argument. Keep
 its reading path, grid, frame, and role systems coherent; adapt variants to the
 actual evidence and borrow at most two bounded treatments from secondary
@@ -148,11 +148,18 @@ If the cover uses chips, tags, or stage labels, carry them forward as a small
 system on later slides; a motif that appears only on slide 1 reads as a
 template artifact.
 
-`renderer_role_systems_v1` is the stronger contract. It assigns renderer-real
-systems for title, section, evidence, comparison, data, decision, and
-references and includes the narrative arc, density, grid, reading path,
-invariants, and forbidden moves. Flat treatment fields remain compatible
-fallbacks; they must not override the role system merely to create novelty.
+`renderer_role_contracts_v2` is the structural contract. It assigns distinct,
+normalized semantic slots to title, section, evidence, comparison, chart,
+table, decision, and references while preserving editable PowerPoint objects.
+The model can choose `primary`, `alternate`, or `dense` per slide, but cannot
+inject arbitrary coordinates. Resolution order is explicit slide override,
+v2 grammar contract, v1 role system, then legacy renderer. Flat treatment
+fields remain compatible fallbacks; they must not override the role system
+merely to create novelty.
+
+New workspaces use v2. A workspace with only `renderer_role_systems_v1` stays
+on v1 until `scripts/upgrade_renderer_role_contracts_v2.py` is run; repeated
+upgrades are no-ops.
 
 ## Elevation & Depth
 

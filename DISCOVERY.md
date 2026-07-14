@@ -13,10 +13,10 @@ QA before delivery.
 ## Short Description
 
 `presentation-skill` treats a deck like code. It gives agents a structured
-PowerPoint workflow with 13 slide variants, 13 style families, descriptor-only
-style atoms, generated chart/table/figure artifacts, saved workspaces, and a
-QA loop for geometry, visual review, readability, placeholder text, and
-reproducibility.
+PowerPoint workflow with 16 content variants, 13 style families, eight
+full-deck role-layout grammars, descriptor-only style atoms, generated
+chart/table/figure artifacts, saved workspaces, and a QA loop for geometry,
+visual review, readability, placeholder text, and reproducibility.
 
 ## Best Search Phrases
 
@@ -51,7 +51,8 @@ Do not use it for pure text brainstorming when no deck artifact is needed.
 - The renderer has actual slide grammars: title, section, cards, split,
   timeline, stats, KPI, comparison, matrix, chart, lab results, scientific
   figure, and Mermaid flow.
-- Presets change structure and evidence posture, not only color.
+- Eight role-layout grammars change title, section, evidence, comparison,
+  chart, table, decision, and source structures, not only color.
 - Style context comes from descriptor-only records and composable atoms, not
   bundled proprietary slide screenshots.
 - Generated data artifacts can produce slide-ready figures, editable chart
@@ -61,14 +62,18 @@ Do not use it for pure text brainstorming when no deck artifact is needed.
 
 ## Proof Links
 
-- README variant proof board:
-  `decks/native-vs-latest-random-topics-20260623/readme_images/presentation_skill_variant_proof.png`
-- README style-family proof board:
-  `decks/native-vs-latest-random-topics-20260623/readme_images/presentation_skill_style_family_proof.png`
+- Narrative structure proof:
+  `examples/v0.9_narrative_structures.jpg`
+- Evidence, chart, and table proof:
+  `examples/v0.9_evidence_data_structures.jpg`
+- Decisions and sources proof:
+  `examples/v0.9_decisions_sources.jpg`
+- Editable full-deck gallery:
+  `examples/v0.9_full_deck_taste_grammar_gallery.pptx`
 - Codex-native vs updated comparison:
   `decks/native-vs-latest-random-topics-20260623/readme_images/codex_native_vs_updated_clean_three_topics.png`
 - Latest release evidence:
-  <https://github.com/siril9/presentation-skill/releases/tag/v0.8.0>
+  <https://github.com/siril9/presentation-skill/releases/tag/v0.9.0>
 
 ## Example Prompts
 
@@ -95,9 +100,9 @@ needs them, and verify readable text sizes before delivery.
 I built an MIT-licensed Codex/ChatGPT presentation skill that treats
 PowerPoint decks like source code: `outline.json` is the source, scripts build
 editable `.pptx`, and QA checks layout, visual issues, placeholder text, and
-reproducibility. It ships with 13 slide variants, 13 style families, generated
-chart/table/figure artifacts, descriptor-only style atoms, and reusable
-workspaces.
+reproducibility. It ships with 16 content variants, eight full-deck role-layout
+grammars, 13 style families, generated chart/table/figure artifacts,
+descriptor-only style atoms, and reusable workspaces.
 
 ## Adoption Checklist
 

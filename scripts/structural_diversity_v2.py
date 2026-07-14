@@ -42,22 +42,23 @@ FEATURE_GROUP_WEIGHTS = {
 class RolePolicy:
     distance_threshold: float
     minimum_clusters: int
+    maximum_cluster_size: int
     maximum_largest_cluster_ratio: float
     minimum_normalized_entropy: float
 
 
 DEFAULT_ROLE_POLICIES: dict[str, RolePolicy] = {
-    "title": RolePolicy(0.060, 5, 0.46, 0.52),
-    "section": RolePolicy(0.060, 4, 0.46, 0.50),
-    "evidence": RolePolicy(0.020, 4, 0.46, 0.48),
-    "comparison": RolePolicy(0.010, 3, 0.54, 0.34),
-    "chart": RolePolicy(0.050, 5, 0.46, 0.52),
-    "table": RolePolicy(0.040, 4, 0.46, 0.50),
-    "decision": RolePolicy(0.020, 4, 0.46, 0.48),
-    "references": RolePolicy(0.005, 3, 0.62, 0.40),
-    "dense_title_evidence": RolePolicy(0.020, 4, 0.46, 0.48),
+    "title": RolePolicy(0.060, 8, 2, 0.16, 0.78),
+    "section": RolePolicy(0.060, 8, 2, 0.16, 0.78),
+    "evidence": RolePolicy(0.020, 8, 2, 0.16, 0.78),
+    "comparison": RolePolicy(0.010, 8, 2, 0.16, 0.78),
+    "chart": RolePolicy(0.010, 8, 2, 0.16, 0.78),
+    "table": RolePolicy(0.017, 8, 2, 0.16, 0.78),
+    "decision": RolePolicy(0.018, 8, 2, 0.16, 0.78),
+    "references": RolePolicy(0.005, 8, 2, 0.16, 0.78),
+    "dense_title_evidence": RolePolicy(0.010, 8, 2, 0.16, 0.78),
 }
-DEFAULT_POLICY = RolePolicy(0.020, 3, 0.62, 0.44)
+DEFAULT_POLICY = RolePolicy(0.020, 8, 2, 0.16, 0.78)
 
 
 @dataclass
@@ -518,6 +519,7 @@ def _policy_for(role: str, overrides: Mapping[str, Any]) -> RolePolicy:
     return RolePolicy(
         distance_threshold=float(raw.get("distance_threshold", default.distance_threshold)),
         minimum_clusters=int(raw.get("minimum_clusters", default.minimum_clusters)),
+        maximum_cluster_size=int(raw.get("maximum_cluster_size", default.maximum_cluster_size)),
         maximum_largest_cluster_ratio=float(
             raw.get("maximum_largest_cluster_ratio", default.maximum_largest_cluster_ratio)
         ),
@@ -634,12 +636,36 @@ def evaluate_manifest(
             role_failures.append(
                 f"largest_cluster_ratio={largest_ratio:.4f} above={policy.maximum_largest_cluster_ratio:.4f}"
             )
+        if largest_cluster > policy.maximum_cluster_size:
+            role_failures.append(
+                f"largest_cluster_size={largest_cluster} above={policy.maximum_cluster_size}"
+            )
         if entropy < policy.minimum_normalized_entropy:
             role_failures.append(
                 f"normalized_entropy={entropy:.4f} below={policy.minimum_normalized_entropy:.4f}"
             )
+        cross_grammar_clusters: list[dict[str, Any]] = []
+        if coherent_groups:
+            for cluster in clusters:
+                groups = sorted(
+                    {
+                        str(coherent_groups.get(deck_id) or "").strip()
+                        for deck_id in cluster
+                        if str(coherent_groups.get(deck_id) or "").strip()
+                    }
+                )
+                if len(groups) > 1:
+                    cross_grammar_clusters.append(
+                        {"members": sorted(cluster), "coherent_groups": groups}
+                    )
+            if cross_grammar_clusters:
+                role_failures.append(
+                    f"cross_grammar_cluster_count={len(cross_grammar_clusters)}"
+                )
         if role_failures:
             failures.append({"type": "role_policy", "role": role, "reasons": role_failures})
+        for cluster in cross_grammar_clusters:
+            failures.append({"type": "cross_grammar_cluster", "role": role, **cluster})
         for cluster in clusters:
             for pair in combinations(sorted(cluster), 2):
                 co_clustered_counts.setdefault(pair, []).append(role)
@@ -651,6 +677,7 @@ def evaluate_manifest(
             "largest_cluster_ratio": round(largest_ratio, 6),
             "normalized_entropy": round(entropy, 6),
             "clusters": [{"cluster_id": index + 1, "members": members} for index, members in enumerate(clusters)],
+            "cross_grammar_clusters": cross_grammar_clusters,
             "pairwise_distances": structural_pairs,
             "edge_hash_diagnostic": {
                 "used_for_gate": False,

@@ -74,6 +74,11 @@ try {
 const TEMPLATES_DIR = path.resolve(__dirname, '..', 'templates', 'pptxgenjs');
 const { getPreset, DEFAULT_PRESET_NAME, listPresets } = require(path.join(TEMPLATES_DIR, 'presets.js'));
 const slides = require(path.join(TEMPLATES_DIR, 'slides.js'));
+const {
+  CONTRACT_VERSION: ROLE_CONTRACT_VERSION,
+  contractsForGrammar,
+  validateResolvedRoleContracts,
+} = require(path.join(TEMPLATES_DIR, 'role_layout_contracts.js'));
 
 // ---------------------------------------------------------------------------
 // CLI parsing
@@ -1092,9 +1097,10 @@ const STYLE_ENUM_VALUES = {
   image_sidebar_mode: new Set(['analysis-rail', 'evidence-mosaic', 'editorial-atlas']),
   comparison_mode: new Set(['open-columns', 'scorecard']),
   composition_grammar: new Set(Object.keys(ROLE_SYSTEMS_BY_GRAMMAR)),
+  role_layout_variant: new Set(['primary', 'alternate', 'dense']),
 };
 
-const ROOT_STYLE_ENUM_KEYS = Object.keys(STYLE_ENUM_VALUES);
+const ROOT_STYLE_ENUM_KEYS = Object.keys(STYLE_ENUM_VALUES).filter((key) => key !== 'role_layout_variant');
 const SLIDE_STYLE_ENUM_KEYS = [
   'header_mode',
   'page_system',
@@ -1113,6 +1119,7 @@ const SLIDE_STYLE_ENUM_KEYS = [
   'image_sidebar_mode',
   'comparison_mode',
   'composition_grammar',
+  'role_layout_variant',
 ];
 
 const ROLE_SYSTEM_KEYS = ['title', 'section', 'evidence', 'comparison', 'data', 'decision', 'references'];
@@ -1200,6 +1207,7 @@ function validateOutlineStyleTreatments(data) {
 
 function applyDeckStyle(basePreset, data, presetName) {
   const preset = Object.assign({}, basePreset);
+  preset.style_preset = String(presetName || '').trim().toLowerCase();
   const treatment = PRESET_TREATMENTS[String(presetName || '').trim().toLowerCase()] || {};
   Object.assign(preset, treatment);
   preset.role_systems = Object.assign({}, treatment.role_systems || {});
@@ -1213,6 +1221,17 @@ function applyDeckStyle(basePreset, data, presetName) {
   const deckStyle = (data && data.deck_style && typeof data.deck_style === 'object')
     ? data.deck_style
     : {};
+  const metadata = data && data.metadata && typeof data.metadata === 'object'
+    ? data.metadata
+    : {};
+  const metadataRoleContracts = metadata.renderer_role_contracts_v2
+    && typeof metadata.renderer_role_contracts_v2 === 'object'
+    ? metadata.renderer_role_contracts_v2
+    : null;
+  const deckRoleContracts = deckStyle.renderer_role_contracts_v2
+    && typeof deckStyle.renderer_role_contracts_v2 === 'object'
+    ? deckStyle.renderer_role_contracts_v2
+    : metadataRoleContracts;
   const metadataRoleSystems = data && data.metadata && typeof data.metadata === 'object'
     && data.metadata.renderer_role_systems_v1 && typeof data.metadata.renderer_role_systems_v1 === 'object'
     ? data.metadata.renderer_role_systems_v1
@@ -1297,6 +1316,44 @@ function applyDeckStyle(basePreset, data, presetName) {
   }
   if (deckStyle.footer_page_numbers !== undefined) {
     preset.footer_page_numbers = Boolean(deckStyle.footer_page_numbers);
+  }
+  if (deckStyle.readability_contract && typeof deckStyle.readability_contract === 'object') {
+    preset.readability_contract = JSON.parse(JSON.stringify(deckStyle.readability_contract));
+  }
+  if (deckRoleContracts) {
+    const failures = validateResolvedRoleContracts(deckRoleContracts);
+    if (failures.length) {
+      throw new Error(`Invalid renderer_role_contracts_v2: ${failures.join('; ')}`);
+    }
+    preset.renderer_role_contracts_v2 = JSON.parse(JSON.stringify(deckRoleContracts));
+    preset.renderer_role_contract_version = ROLE_CONTRACT_VERSION;
+    preset.composition_grammar = String(deckRoleContracts.composition_grammar_id).trim().toLowerCase();
+    const contractRoles = deckRoleContracts.roles || {};
+    for (const role of ROLE_SYSTEM_KEYS) {
+      const contractRole = role === 'data' ? contractRoles.chart : contractRoles[role];
+      if (contractRole && typeof contractRole.system_id === 'string' && contractRole.system_id.trim()) {
+        preset.role_systems[role] = contractRole.system_id.trim().toLowerCase();
+      }
+    }
+  } else if (deckRoleSystems && Object.keys(deckRoleSystems).length) {
+    // A persisted v1-only outline is an explicit compatibility pin. It must
+    // not silently adopt new geometry during a rebuild.
+    preset.renderer_role_contract_version = 'renderer_role_systems_v1';
+  } else {
+    preset.renderer_role_contracts_v2 = contractsForGrammar(
+      preset.composition_grammar,
+      preset.style_preset,
+    );
+    preset.renderer_role_contract_version = ROLE_CONTRACT_VERSION;
+    const contractRoles = preset.renderer_role_contracts_v2 && preset.renderer_role_contracts_v2.roles;
+    if (contractRoles) {
+      for (const role of ROLE_SYSTEM_KEYS) {
+        const contractRole = role === 'data' ? contractRoles.chart : contractRoles[role];
+        if (contractRole && typeof contractRole.system_id === 'string' && contractRole.system_id.trim()) {
+          preset.role_systems[role] = contractRole.system_id.trim().toLowerCase();
+        }
+      }
+    }
   }
   return preset;
 }
@@ -1562,7 +1619,7 @@ function renderSlide(pptx, pSlide, slide, preset) {
       slides.renderStandard(pptx, pSlide, slide, preset);
       break;
   }
-  if (!skipCallout) {
+  if (!skipCallout && !slide.__roleContractConsumesSummary) {
     slides.addSummaryCallout(pptx, pSlide, slide, preset);
   }
 }
@@ -1740,4 +1797,8 @@ module.exports = {
   GRAMMAR_BY_PRESET,
   STYLE_ENUM_VALUES,
   applyDeckStyle,
+  main,
+  normalizeSlide,
+  renderSlide,
+  resolveIconsForSlides,
 };

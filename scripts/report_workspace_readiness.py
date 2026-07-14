@@ -12,6 +12,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from action_registry import materialize_registered_action
 from build_workspace import (
     _artifact_dependency_source_files,
     _canonical_style_preset,
@@ -2885,6 +2886,7 @@ def _outline_composition(workspace: Path, outline_path: Path) -> dict[str, Any]:
                 "type": slide_type,
                 "variant": variant,
                 "title": title,
+                "starter_kind": str(raw_slide.get("starter_kind") or "").strip(),
                 "visual_anchor_kinds": visual_kinds,
                 "structure_anchor_kinds": structure_kinds,
                 "has_sources": bool(sources),
@@ -4546,7 +4548,7 @@ _RECOMMENDATION_PRIORITY = {
 }
 
 
-def _next_action(recommendations: list[dict[str, Any]]) -> dict[str, Any]:
+def _next_action(recommendations: list[dict[str, Any]], *, workspace: Path) -> dict[str, Any]:
     if not recommendations:
         return {
             "kind": "none",
@@ -4589,7 +4591,11 @@ def _next_action(recommendations: list[dict[str, Any]]) -> dict[str, Any]:
         action["action_type"] = "edit_sources"
     else:
         action["action_type"] = "run_command" if _command_text(action.get("command")) else "edit_sources"
-    return action
+    return materialize_registered_action(
+        action,
+        repo=Path(__file__).resolve().parents[1],
+        workspace=workspace,
+    )
 
 
 def _source_files(workspace: Path, manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -5296,7 +5302,7 @@ def _readiness_markdown(report: dict[str, Any]) -> str:
             lines[insert_at:insert_at] = stale_lines + [""]
     if next_action.get("kind") and next_action.get("kind") != "none":
         lines.extend(_recommendation_detail_lines(next_action))
-    next_action_command = _command_text(next_action.get("command"))
+    next_action_command = _command_text(next_action.get("display_command"))
     if next_action_command:
         lines.append(f"  Command: `{next_action_command}`")
     lines.extend(
@@ -5312,7 +5318,7 @@ def _readiness_markdown(report: dict[str, Any]) -> str:
                 continue
             lines.append(f"- `{item.get('kind', '')}`: {item.get('reason', '')}")
             lines.extend(_recommendation_detail_lines(item))
-            command = _command_text(item.get("command"))
+            command = _command_text(item.get("display_command") or item.get("command"))
             if command:
                 lines.append(f"  Command: `{command}`")
     else:
@@ -5460,7 +5466,7 @@ def main() -> int:
         data_analysis_handoff=data_analysis_handoff,
         outline_authoring_handoff=outline_authoring_handoff,
     )
-    next_action = _next_action(recommendations)
+    next_action = _next_action(recommendations, workspace=workspace)
     execution_plan = _deck_execution_plan_progress(
         workspace=workspace,
         deck_intake=deck_intake,
@@ -5483,7 +5489,7 @@ def main() -> int:
     )
     if phase_recommendations:
         recommendations = [*recommendations, *phase_recommendations]
-        next_action = _next_action(recommendations)
+        next_action = _next_action(recommendations, workspace=workspace)
         execution_plan = _deck_execution_plan_progress(
             workspace=workspace,
             deck_intake=deck_intake,
@@ -5499,6 +5505,21 @@ def main() -> int:
             recommendations=recommendations,
             next_action=next_action,
         )
+
+    report_recommendations: list[dict[str, Any]] = []
+    for item in recommendations:
+        if not isinstance(item, dict):
+            continue
+        sanitized = dict(item)
+        command = sanitized.pop("command", None)
+        if (
+            sanitized.get("kind") == next_action.get("kind")
+            and sanitized.get("reason") == next_action.get("reason")
+        ):
+            sanitized = dict(next_action)
+        elif command:
+            sanitized["display_command"] = _command_text(command)
+        report_recommendations.append(sanitized)
 
     blocking_errors = planning_summary["error_count"] + preflight_summary["error_count"]
     warning_count = planning_summary["warning_count"] + preflight_summary["warning_count"]
@@ -5737,7 +5758,7 @@ def main() -> int:
         "pptx_style": pptx_style,
         "execution_plan": execution_plan,
         "last_build": last_build,
-        "recommendations": recommendations,
+        "recommendations": report_recommendations,
         "next_action": next_action,
         "next_commands": next_commands,
     }

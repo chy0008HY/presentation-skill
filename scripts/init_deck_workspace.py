@@ -628,6 +628,7 @@ def _starter_outline(
             },
             "style_atom_context": atom_context,
             "renderer_role_systems_v1": atom_context.get("renderer_role_systems_v1") or {},
+            "renderer_role_contracts_v2": atom_context.get("renderer_role_contracts_v2") or {},
         },
         "slides": [
             {
@@ -1127,6 +1128,11 @@ def _design_brief_stub(title: str, style_preset: str, *, user_prompt: str = "") 
         if isinstance(atom_context.get("renderer_role_systems_v1"), dict)
         else treatment_profile.get("renderer_role_systems_v1") or {}
     )
+    renderer_role_contracts = (
+        atom_context.get("renderer_role_contracts_v2")
+        if isinstance(atom_context.get("renderer_role_contracts_v2"), dict)
+        else treatment_profile.get("renderer_role_contracts_v2") or {}
+    )
     return {
         "topic": title,
         "content_maturity": "serious/work",
@@ -1171,6 +1177,7 @@ def _design_brief_stub(title: str, style_preset: str, *, user_prompt: str = "") 
             "style_atom_narrative_arc": atom_context.get("narrative_arc") or [],
             "composition_grammar_route": composition_grammar_route,
             "renderer_role_systems_v1": renderer_role_systems,
+            "renderer_role_contracts_v2": renderer_role_contracts,
             "style_execution_plan": atom_context.get("style_execution_plan") or {},
             "style_mix_matrix": treatment_profile["style_mix_matrix"],
         },
@@ -1194,6 +1201,7 @@ def _design_brief_stub(title: str, style_preset: str, *, user_prompt: str = "") 
                 "role_variant_map": primary_composition_grammar.get("role_variant_map") or {},
                 "renderer_bias": primary_composition_grammar.get("renderer_bias") or {},
                 "renderer_role_systems_v1": renderer_role_systems,
+                "renderer_role_contracts_v2": renderer_role_contracts,
                 "narrative_arc": primary_composition_grammar.get("narrative_arc") or {},
                 "density": primary_composition_grammar.get("density") or {},
                 "grid": primary_composition_grammar.get("grid") or {},
@@ -1360,7 +1368,7 @@ def _style_contract(
         )
     )
     contract: dict[str, Any] = {
-        "workspace_version": 1,
+        "workspace_version": 2,
         "deck_title": title,
         "deck_slug": slug,
         "build": {
@@ -1392,6 +1400,7 @@ def _style_contract(
         },
         "style_atom_context": atom_context,
         "renderer_role_systems_v1": atom_context.get("renderer_role_systems_v1") or {},
+        "renderer_role_contracts_v2": atom_context.get("renderer_role_contracts_v2") or {},
     }
     if reference_pptx:
         contract["reference"] = _reference_summary(reference_pptx)
@@ -1576,8 +1585,14 @@ def main() -> int:
         reference_pptx=reference_pptx,
         user_prompt=user_prompt,
     )
+    outline_metadata = outline.setdefault("metadata", {})
+    if isinstance(outline_metadata, dict):
+        outline_metadata.setdefault(
+            "renderer_role_contracts_v2",
+            style_contract.get("renderer_role_contracts_v2") or {},
+        )
     workspace_manifest = {
-        "workspace_version": 1,
+        "workspace_version": 2,
         "deck_title": args.title,
         "deck_slug": slug,
         "style_contract": "style_contract.json",

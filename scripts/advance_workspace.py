@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from action_registry import ActionRegistryError, resolve_registered_action
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -2090,7 +2091,7 @@ def _artifact_command_details(report: dict[str, Any], action: dict[str, Any]) ->
         else {}
     )
     details: dict[str, Any] = {
-        "command": _command_text(action.get("command")),
+        "command": _command_text(action.get("display_command")),
     }
     data_paths = action.get("data_paths")
     if isinstance(data_paths, list) and data_paths:
@@ -2772,7 +2773,7 @@ def _next_action_prompt(
     last_build = report.get("last_build") if isinstance(report.get("last_build"), dict) else {}
     build_data_handoff = _build_data_handoff_summary(report)
     source_files = report.get("source_files") if isinstance(report.get("source_files"), dict) else {}
-    command = _command_text(action.get("command"))
+    command = _command_text(action.get("display_command"))
     source_file_lines = []
     for name in (
         "outline",
@@ -3002,7 +3003,10 @@ def _compact_action(action: Any) -> dict[str, Any]:
         "priority",
         "action_type",
         "reason",
-        "command",
+        "action_schema_version",
+        "action_id",
+        "parameters",
+        "display_command",
         "slide_ids",
         "suggested_variants",
         "suggested_fields",
@@ -3168,14 +3172,20 @@ def main() -> int:
             exit_code = 1
             break
 
-        command = _normalize_command(action.get("command"))
-        signature = f"{kind}\n{_command_text(command)}"
-        if not command:
-            step_entry["decision"] = "missing_command"
+        try:
+            command = resolve_registered_action(
+                action,
+                repo=repo,
+                workspace=workspace,
+            )
+        except ActionRegistryError as exc:
+            step_entry["decision"] = "action_registry_rejected"
+            step_entry["action_registry_error"] = str(exc)
             steps.append(step_entry)
-            final_decision = "missing_command"
+            final_decision = "action_registry_rejected"
             exit_code = 2
             break
+        signature = f"{kind}\n{_command_text(command)}"
         if not args.execute:
             step_entry["decision"] = "dry_run_command_available"
             steps.append(step_entry)

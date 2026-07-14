@@ -1472,6 +1472,9 @@ def _deck_style_from_design_brief(brief: Any) -> dict[str, Any]:
     if not isinstance(brief, dict):
         return {}
     style: dict[str, Any] = {}
+    readability_contract = brief.get("readability_contract")
+    if isinstance(readability_contract, dict):
+        style["readability_contract"] = copy.deepcopy(readability_contract)
     style_system = brief.get("style_system") if isinstance(brief.get("style_system"), dict) else {}
     if isinstance(style_system, dict):
         _merge_style_values(
@@ -2222,6 +2225,25 @@ def _resolved_outline_path(
     outline_style = outline.get("deck_style") if isinstance(outline.get("deck_style"), dict) else {}
     resolved_style = {**brief_style, **outline_style}
     resolved_outline = copy.deepcopy(outline)
+    metadata_changed = False
+    brief_style_system = brief.get("style_system") if isinstance(brief, dict) else {}
+    brief_role_contracts = (
+        brief_style_system.get("renderer_role_contracts_v2")
+        if isinstance(brief_style_system, dict)
+        and isinstance(brief_style_system.get("renderer_role_contracts_v2"), dict)
+        else {}
+    )
+    resolved_metadata = resolved_outline.setdefault("metadata", {})
+    if brief_role_contracts and isinstance(resolved_metadata, dict):
+        outline_role_contracts = resolved_metadata.get("renderer_role_contracts_v2")
+        if isinstance(outline_role_contracts, dict) and outline_role_contracts and outline_role_contracts != brief_role_contracts:
+            raise ValueError(
+                "Conflicting renderer_role_contracts_v2 in design_brief.json and outline.json; "
+                "run the explicit workspace upgrader or reconcile the source files."
+            )
+        if outline_role_contracts != brief_role_contracts:
+            resolved_metadata["renderer_role_contracts_v2"] = copy.deepcopy(brief_role_contracts)
+            metadata_changed = True
     if resolved_style:
         resolved_outline["deck_style"] = resolved_style
     layout_summary = _apply_style_reference_layout_playbook(
@@ -2235,7 +2257,7 @@ def _resolved_outline_path(
             **treatment_summary,
             **({"style_reference_layout": layout_summary} if layout_summary else {}),
         }
-    if resolved_style == outline_style and not treatment_summary and not layout_summary:
+    if resolved_style == outline_style and not treatment_summary and not layout_summary and not metadata_changed:
         return outline_path
     out_path = build_dir / "outline_resolved.json"
     _write_json_if_changed(out_path, resolved_outline)

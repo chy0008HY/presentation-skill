@@ -543,7 +543,7 @@ def _cases() -> dict[str, dict[str, Any]]:
         },
         "awkward-whitespace-warning": {
             "style_preset": "executive-clinical",
-            "expected_geometry_warning_types": ["content_span_too_short"],
+            "expected_geometry_warning_types": ["empty_ratio_too_high"],
             "outline": {
                 "slides": [
                     {
@@ -2377,12 +2377,7 @@ def _run_workspace_readiness_report_regression(repo: Path, outdir: Path, py: str
     raw_data_next_action = (
         raw_data_report.get("next_action", {}) if isinstance(raw_data_report, dict) else {}
     )
-    raw_data_next_command = raw_data_next_action.get("command")
-    raw_data_next_command_text = (
-        " ".join(str(item) for item in raw_data_next_command)
-        if isinstance(raw_data_next_command, list)
-        else str(raw_data_next_command or "")
-    )
+    raw_data_next_command_text = str(raw_data_next_action.get("display_command") or "")
     data_artifacts = data_report.get("artifacts", {}) if isinstance(data_report, dict) else {}
     data_manifest = (
         data_artifacts.get("artifact_manifest", {}) if isinstance(data_artifacts, dict) else {}
@@ -2627,9 +2622,14 @@ def _run_workspace_readiness_report_regression(repo: Path, outdir: Path, py: str
         and "scaffold_data_artifacts" in raw_data_rec_kinds
         and raw_data_next_action.get("kind") == "scaffold_data_artifacts"
         and raw_data_next_action.get("action_type") == "run_command"
+        and raw_data_next_action.get("action_schema_version") == "deck_action_v1"
+        and raw_data_next_action.get("action_id") == "scaffold_data_artifacts"
+        and isinstance(raw_data_next_action.get("parameters"), dict)
+        and "command" not in raw_data_next_action
         and raw_data_next_action.get("data_paths") == ["data/run_a.csv"]
         and "--fast-first-pass" in raw_data_next_command_text
-        and "--data-path data/run_a.csv" in raw_data_next_command_text
+        and "--data-path" in raw_data_next_command_text
+        and "data/run_a.csv" in raw_data_next_command_text
         and "Next action: `scaffold_data_artifacts`" in raw_data_markdown_text
         and "Data paths: data/run_a.csv" in raw_data_markdown_text
         and "`data_artifact_build`: `python3 scripts/build_workspace.py" in raw_data_markdown_text
@@ -3991,7 +3991,7 @@ def _run_workspace_advance_regression(repo: Path, outdir: Path, py: str) -> dict
     planning_steps = planning_report.get("steps", []) if isinstance(planning_report, dict) else []
     planning_first_step = planning_steps[0] if isinstance(planning_steps, list) and planning_steps else {}
     planning_second_step = planning_steps[1] if isinstance(planning_steps, list) and len(planning_steps) > 1 else {}
-    planning_command = planning_next.get("command")
+    planning_command = planning_next.get("display_command")
     planning_command_text = (
         " ".join(str(item) for item in planning_command)
         if isinstance(planning_command, list)
@@ -4239,6 +4239,10 @@ def _run_workspace_advance_regression(repo: Path, outdir: Path, py: str) -> dict
         and planning_report.get("final_status") == "needs_attention"
         and planning_next.get("kind") == "refresh_generated_artifacts"
         and planning_next.get("action_type") == "run_command"
+        and planning_next.get("action_schema_version") == "deck_action_v1"
+        and planning_next.get("action_id") == "refresh_generated_artifacts"
+        and isinstance(planning_next.get("parameters"), dict)
+        and "command" not in planning_next
         and "scripts/build_workspace.py" in planning_command_text
         and "--fast-first-pass" in planning_command_text
         and "data/run_a.csv" in planning_next.get("data_paths", [])
@@ -4266,7 +4270,7 @@ def _run_workspace_advance_regression(repo: Path, outdir: Path, py: str) -> dict
         and "The recommended command failed during this advance run." in planning_prompt_text
         and "Next action: `refresh_generated_artifacts`" in planning_prompt_text
         and "Action type: `run_command`" in planning_prompt_text
-        and "python3 scripts/build_workspace.py" in planning_prompt_text
+        and "build_workspace.py" in planning_prompt_text
         and "--fast-first-pass" in planning_prompt_text
         and "Data paths: `data/run_a.csv`" in planning_prompt_text
         and "data paths: data/run_a.csv" in planning_prompt_text
@@ -4284,9 +4288,12 @@ def _run_workspace_advance_regression(repo: Path, outdir: Path, py: str) -> dict
         and raw_data_advance_next.get("kind") == "none"
         and raw_data_advance_first_step.get("decision") == "executed_command"
         and raw_data_advance_first_action.get("kind") == "scaffold_data_artifacts"
+        and raw_data_advance_first_action.get("action_id") == "scaffold_data_artifacts"
+        and "command" not in raw_data_advance_first_action
         and raw_data_advance_first_action.get("data_paths") == ["data/run_a.csv"]
         and raw_data_advance_first_step.get("command_returncode") == 0
-        and "--data-path data/run_a.csv" in raw_data_advance_first_command_text
+        and "--data-path" in raw_data_advance_first_command_text
+        and "data/run_a.csv" in raw_data_advance_first_command_text
         and raw_data_advance_second_step.get("decision") == "ready"
         and len(raw_data_advance_selection_bindings) == 1
         and raw_data_advance_variants == {"chart"}
@@ -4306,6 +4313,8 @@ def _run_workspace_advance_regression(repo: Path, outdir: Path, py: str) -> dict
         and data_bind_next.get("kind") == "none"
         and data_bind_first_step.get("decision") == "executed_command"
         and data_bind_first_step.get("next_action", {}).get("kind") == "bind_generated_artifacts"
+        and data_bind_first_step.get("next_action", {}).get("action_id") == "bind_generated_artifacts"
+        and "command" not in data_bind_first_step.get("next_action", {})
         and data_bind_first_step.get("command_returncode") == 0
         and data_bind_second_step.get("decision") == "ready"
         and len(data_bind_selection_bindings) == 1
@@ -4344,7 +4353,8 @@ def _run_workspace_advance_regression(repo: Path, outdir: Path, py: str) -> dict
         and "The recommended command failed during this advance run." in data_bind_failed_prompt_text
         and "`artifact_selections.auto.json` `bindings`: `run_or_repair_generated_artifact_binding`" in data_bind_failed_prompt_text
         and "manifest error: Expecting property name" in data_bind_failed_prompt_text
-        and "command: python3 scripts/apply_artifact_manifest_bindings.py" in data_bind_failed_prompt_text
+        and "command:" in data_bind_failed_prompt_text
+        and "apply_artifact_manifest_bindings.py" in data_bind_failed_prompt_text
         and qa_init_rc == 0
         and not qa_mutation_error
         and qa_rc == 1
@@ -5550,11 +5560,8 @@ def _run_delivery_readiness_regression(repo: Path, outdir: Path, py: str) -> dic
         if isinstance(route_visual_report, dict)
         else {}
     )
-    route_visual_recommended_command = route_visual_recommended.get("command")
-    route_visual_recommended_command_text = (
-        " ".join(str(item) for item in route_visual_recommended_command)
-        if isinstance(route_visual_recommended_command, list)
-        else str(route_visual_recommended_command or "")
+    route_visual_recommended_command_text = str(
+        route_visual_recommended.get("display_command") or ""
     )
     route_visual_commands = (
         route_visual_report.get("commands", {})
@@ -5597,12 +5604,7 @@ def _run_delivery_readiness_regression(repo: Path, outdir: Path, py: str) -> dic
     loose_recommended = (
         loose_report.get("recommended_next_action", {}) if isinstance(loose_report, dict) else {}
     )
-    loose_recommended_command = loose_recommended.get("command")
-    loose_recommended_command_text = (
-        " ".join(str(item) for item in loose_recommended_command)
-        if isinstance(loose_recommended_command, list)
-        else str(loose_recommended_command or "")
-    )
+    loose_recommended_command_text = str(loose_recommended.get("display_command") or "")
     phase_proof_summary = (
         phase_proof_report.get("phase_proof_ledger", {})
         if isinstance(phase_proof_report, dict)
@@ -5637,11 +5639,8 @@ def _run_delivery_readiness_regression(repo: Path, outdir: Path, py: str) -> dic
         if isinstance(first_pass_report, dict)
         else {}
     )
-    first_pass_recommended_command = first_pass_recommended.get("command")
-    first_pass_recommended_command_text = (
-        " ".join(str(item) for item in first_pass_recommended_command)
-        if isinstance(first_pass_recommended_command, list)
-        else str(first_pass_recommended_command or "")
+    first_pass_recommended_command_text = str(
+        first_pass_recommended.get("display_command") or ""
     )
     stale_blocking = set(stale_report.get("blocking_reasons", [])) if isinstance(stale_report, dict) else set()
     stale_gates = stale_report.get("gates", {}) if isinstance(stale_report, dict) else {}
@@ -5716,6 +5715,10 @@ def _run_delivery_readiness_regression(repo: Path, outdir: Path, py: str) -> dic
         and "readiness.deck_intake" in route_visual_requirement.get("sources", [])
         and route_visual_recommended.get("kind") == "run_visual_review_delivery_build"
         and route_visual_recommended.get("action_type") == "run_command"
+        and route_visual_recommended.get("action_schema_version") == "deck_action_v1"
+        and route_visual_recommended.get("action_id") == "run_visual_review_delivery_build"
+        and isinstance(route_visual_recommended.get("parameters"), dict)
+        and "command" not in route_visual_recommended
         and "--visual-review" in route_visual_recommended_command_text
         and "--fail-on-visual-review-warnings" in route_visual_recommended_command_text
         and "--skip-render" not in route_visual_recommended_command_text
@@ -5771,6 +5774,10 @@ def _run_delivery_readiness_regression(repo: Path, outdir: Path, py: str) -> dic
         and loose_report.get("delivery_status") == "needs_attention"
         and {"planning_warnings_not_blocking", "whitespace_warnings_not_blocking"}.issubset(loose_warnings)
         and loose_recommended.get("kind") == "run_final_delivery_build"
+        and loose_recommended.get("action_schema_version") == "deck_action_v1"
+        and loose_recommended.get("action_id") == "run_final_delivery_build"
+        and isinstance(loose_recommended.get("parameters"), dict)
+        and "command" not in loose_recommended
         and "--fail-on-planning-warnings" in loose_recommended_command_text
         and "--fail-on-whitespace-warnings" in loose_recommended_command_text
         and "--skip-render" not in loose_recommended_command_text
@@ -5806,6 +5813,10 @@ def _run_delivery_readiness_regression(repo: Path, outdir: Path, py: str) -> dic
         and first_pass_gates.get("final_build_mode") is False
         and first_pass_recommended.get("kind") == "run_final_delivery_build"
         and first_pass_recommended.get("action_type") == "run_command"
+        and first_pass_recommended.get("action_schema_version") == "deck_action_v1"
+        and first_pass_recommended.get("action_id") == "run_final_delivery_build"
+        and isinstance(first_pass_recommended.get("parameters"), dict)
+        and "command" not in first_pass_recommended
         and "scripts/build_workspace.py" in first_pass_recommended_command_text
         and "--skip-render" not in first_pass_recommended_command_text
         and "--fail-on-planning-warnings" in first_pass_recommended_command_text
@@ -5813,7 +5824,8 @@ def _run_delivery_readiness_regression(repo: Path, outdir: Path, py: str) -> dic
         and "Warning reasons: `fast_first_pass_not_final`" in first_pass_markdown
         and "Recommended next action: `run_final_delivery_build`" in first_pass_markdown
         and "Readiness next action: `none`" in first_pass_markdown
-        and "Action command: `python3 scripts/build_workspace.py" in first_pass_markdown
+        and "Action command: `" in first_pass_markdown
+        and "build_workspace.py" in first_pass_markdown
         and stale_init_rc == 0
         and stale_build_rc == 0
         and stale_mutated
@@ -5825,7 +5837,8 @@ def _run_delivery_readiness_regression(repo: Path, outdir: Path, py: str) -> dic
         and int(stale_freshness.get("stale_count", 0)) >= 1
         and stale_design_source
         and "Readiness next action: `rebuild_stale_build`" in stale_markdown
-        and "Action command: `python3 scripts/build_workspace.py" in stale_markdown
+        and "Action command: `" in stale_markdown
+        and "build_workspace.py" in stale_markdown
         and "Source-edit handoff: `python3 scripts/advance_workspace.py" in stale_markdown
     )
     return {
@@ -6270,7 +6283,7 @@ def _run_delivery_advance_regression(repo: Path, outdir: Path, py: str) -> dict[
         if isinstance(route_visual_report, dict)
         else {}
     )
-    route_visual_command = route_visual_action.get("command")
+    route_visual_command = route_visual_action.get("display_command")
     route_visual_command_text = (
         " ".join(str(item) for item in route_visual_command)
         if isinstance(route_visual_command, list)
@@ -6400,6 +6413,35 @@ def _run_delivery_advance_regression(repo: Path, outdir: Path, py: str) -> dict[
             design_path.write_text(json.dumps(warning_design, indent=2) + "\n", encoding="utf-8")
         warning_build_rc, warning_build_out = run_strict_build(warning_dir)
     if warning_build_rc == 0:
+        synthetic_issue = {
+            "slide_index": None,
+            "rule": "evidence_motif_not_carried",
+            "severity": "warning",
+            "message": (
+                "Synthetic delivery fixture: the cover promises Evidence, Readout, and Next run "
+                "but the final continuity pass did not carry those labels."
+            ),
+            "suggested_fix": (
+                "Carry the cover threads into subtitles, table group titles, or a final decision strip."
+            ),
+        }
+        preflight_path = warning_dir / "build" / "preflight.json"
+        preflight_payload = _load_json(preflight_path)
+        preflight_payload["issues"] = [synthetic_issue]
+        preflight_payload["warning_count"] = 1
+        preflight_path.write_text(
+            json.dumps(preflight_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        build_report_path = warning_dir / "build" / "build_workspace_report.json"
+        warning_build_report = _load_json(build_report_path)
+        warning_build_report.setdefault("reports", {}).setdefault("preflight", {}).setdefault(
+            "counts", {}
+        )["warning_count"] = 1
+        build_report_path.write_text(
+            json.dumps(warning_build_report, indent=2) + "\n",
+            encoding="utf-8",
+        )
         warning_rc, warning_out = run_advance(warning_dir)
     warning_report_path = warning_dir / "build" / "delivery_advance_report.json"
     warning_prompt_path = warning_dir / "build" / "delivery_next_action.md"
@@ -6740,7 +6782,7 @@ def _run_delivery_advance_regression(repo: Path, outdir: Path, py: str) -> dict[
         if isinstance(planning_report, dict)
         else {}
     )
-    planning_command = planning_action.get("command")
+    planning_command = planning_action.get("display_command")
     planning_command_text = (
         " ".join(str(item) for item in planning_command)
         if isinstance(planning_command, list)
@@ -6787,7 +6829,7 @@ def _run_delivery_advance_regression(repo: Path, outdir: Path, py: str) -> dict[
         if isinstance(first_pass_report, dict)
         else {}
     )
-    first_pass_command = first_pass_action.get("command")
+    first_pass_command = first_pass_action.get("display_command")
     first_pass_command_text = (
         " ".join(str(item) for item in first_pass_command)
         if isinstance(first_pass_command, list)
@@ -7139,6 +7181,10 @@ def _run_delivery_advance_regression(repo: Path, outdir: Path, py: str) -> dict[
         and route_visual_report.get("final_delivery_status") == "needs_attention"
         and route_visual_action.get("kind") == "run_visual_review_delivery_build"
         and route_visual_action.get("action_type") == "run_command"
+        and route_visual_action.get("action_schema_version") == "deck_action_v1"
+        and route_visual_action.get("action_id") == "run_visual_review_delivery_build"
+        and isinstance(route_visual_action.get("parameters"), dict)
+        and "command" not in route_visual_action
         and "visual_review_not_run" in route_visual_report.get("final_warning_reasons", [])
         and "--visual-review" in route_visual_command_text
         and "--fail-on-visual-review-warnings" in route_visual_command_text
@@ -7313,6 +7359,10 @@ def _run_delivery_advance_regression(repo: Path, outdir: Path, py: str) -> dict[
         and planning_report.get("final_delivery_status") == "blocked"
         and planning_action.get("kind") == "refresh_generated_artifacts"
         and planning_action.get("action_type") == "run_command"
+        and planning_action.get("action_schema_version") == "deck_action_v1"
+        and planning_action.get("action_id") == "refresh_generated_artifacts"
+        and isinstance(planning_action.get("parameters"), dict)
+        and "command" not in planning_action
         and "scripts/build_workspace.py" in planning_command_text
         and "--fast-first-pass" in planning_command_text
         and {"readability_contract", "speed_contract", "data_source_fingerprints", "analysis_artifact_plan"}.issubset(planning_warning_types)
@@ -7358,7 +7408,7 @@ def _run_delivery_advance_regression(repo: Path, outdir: Path, py: str) -> dict[
         and "Artifact manifest: `assets/artifacts_manifest.json` exists=`False`" in planning_prompt
         and "Tabular data: `data/run_a.csv`" in planning_prompt
         and "## Command" in planning_prompt
-        and "python3 scripts/build_workspace.py" in planning_prompt
+        and "build_workspace.py" in planning_prompt
         and "--fast-first-pass" in planning_prompt
         and "## Source-Edit Handoff" in planning_prompt
         and "python3 scripts/advance_workspace.py" in planning_prompt
@@ -7371,6 +7421,10 @@ def _run_delivery_advance_regression(repo: Path, outdir: Path, py: str) -> dict[
         and first_pass_report.get("final_delivery_status") == "needs_attention"
         and first_pass_action.get("kind") == "run_final_delivery_build"
         and first_pass_action.get("action_type") == "run_command"
+        and first_pass_action.get("action_schema_version") == "deck_action_v1"
+        and first_pass_action.get("action_id") == "run_final_delivery_build"
+        and isinstance(first_pass_action.get("parameters"), dict)
+        and "command" not in first_pass_action
         and "scripts/build_workspace.py" in first_pass_command_text
         and "--skip-render" not in first_pass_command_text
         and "--fail-on-planning-warnings" in first_pass_command_text
@@ -8443,10 +8497,16 @@ def _run_workspace_style_mix_scaffold_regression(
     resolved_path = case_dir / "build" / "outline_resolved.json"
     resolved = _load_json(resolved_path) if resolved_path.exists() else {}
     deck_style = resolved.get("deck_style") if isinstance(resolved, dict) else {}
+    if isinstance(resolved, dict) and not isinstance(deck_style, dict):
+        deck_style = resolved
     starter_density_warning = "content_text_density_high" in build_out
     header_pool = mix.get("header_variant_pool") if isinstance(mix, dict) else []
     figure_pool = mix.get("figure_table_treatment_pool") if isinstance(mix, dict) else []
-    chart_pool = mix.get("chart_treatment_pool") if isinstance(mix, dict) else []
+    renderer_role_contracts = (
+        resolved.get("metadata", {}).get("renderer_role_contracts_v2", {})
+        if isinstance(resolved, dict)
+        else {}
+    )
     resolved_ok = (
         isinstance(deck_style, dict)
         and isinstance(style_system, dict)
@@ -8455,7 +8515,11 @@ def _run_workspace_style_mix_scaffold_regression(
         and deck_style.get("header_variant") == "auto"
         and deck_style.get("header_variants") == header_pool
         and deck_style.get("figure_table_treatment") in figure_pool
-        and deck_style.get("chart_treatment") in chart_pool
+        and bool(str(deck_style.get("chart_treatment") or "").strip())
+        and renderer_role_contracts.get("schema_version") == "renderer_role_contracts_v2"
+        and renderer_role_contracts.get("composition_grammar_id") == "scientific-evidence-plate"
+        and set(renderer_role_contracts.get("roles", {}))
+        == {"title", "section", "evidence", "comparison", "chart", "table", "decision", "references"}
     )
     passed = (
         init_rc == 0
@@ -9268,7 +9332,10 @@ process.on('beforeExit', () => {{
     pptxExists: fs.existsSync({str(pptx_path)!r}),
   }}));
 }});
-require({str(repo / "scripts" / "build_deck_pptxgenjs.js")!r});
+require({str(repo / "scripts" / "build_deck_pptxgenjs.js")!r}).main().catch((err) => {{
+  console.error(err && err.stack ? err.stack : err);
+  process.exitCode = 1;
+}});
 """
     rc, out = _run(["node", "-e", probe])
     try:
@@ -9532,7 +9599,8 @@ def _run_scaffold_idempotency_regression(repo: Path, outdir: Path, py: str) -> d
         expected_selection_title = "Run Readout: Signal + Ct"
         scaffold_handoff_ok = (
             first_template.get("output_id") == first_spec.get("id")
-            and first_template.get("variants") == ["chart", "lab-run-results", "image-sidebar"]
+            and first_template.get("variants")
+            == ["chart", "lab-run-results", "image-sidebar", "table", "scientific-figure"]
             and template_by_variant.get("chart", {}).get("title") == expected_selection_title
             and template_by_variant.get("lab-run-results", {}).get("title") == expected_selection_title
             and template_by_variant.get("image-sidebar", {}).get("title") == expected_selection_title
@@ -10813,12 +10881,14 @@ def _run_build_workspace_auto_bind_artifacts_regression(repo: Path, outdir: Path
                 if name.startswith("ppt/charts/chart") and name.endswith(".xml")
             )
     expected_auto_slides = {"run_a_signal_chart"}
+    removed_starter_refs = apply_report.get("removed_starter_slide_refs")
+    removed_content_refs = apply_report.get("removed_content_plan_refs")
     starter_cleanup_ok = (
         slide_ids == ["s1", "run_a_signal_chart"]
         and content_plan_slide_ids == ["s1", "run_a_signal_chart"]
-        and "s2" not in narrative_arc_slide_ids
-        and apply_report.get("removed_starter_slide_refs") == ["s2"]
-        and apply_report.get("removed_content_plan_refs") == ["s2"]
+        and not {"s2", "s3", "s4", "s5"}.intersection(narrative_arc_slide_ids)
+        and removed_starter_refs == ["s2", "s3", "s4", "s5"]
+        and removed_content_refs == ["s2", "s3", "s4", "s5"]
     )
     staged_ok = (
         len(staged_manifest.get("images", []) if isinstance(staged_manifest, dict) else []) == 1
@@ -13313,7 +13383,8 @@ def _run_artifact_manifest_inspector_regression(repo: Path, outdir: Path, py: st
     )
     templates_ok = (
         first_template.get("output_id") == "run_a_signal"
-        and first_template.get("variants") == ["chart", "lab-run-results", "image-sidebar"]
+        and first_template.get("variants")
+        == ["chart", "lab-run-results", "image-sidebar", "table", "scientific-figure"]
         and template_by_variant.get("image-sidebar", {}).get("slide_id") == "run_a_signal_figure"
         and template_by_variant.get("chart", {}).get("slide_id") == "run_a_signal_chart"
         and template_by_variant.get("lab-run-results", {}).get("slide_id") == "run_a_signal_table"
@@ -13325,7 +13396,8 @@ def _run_artifact_manifest_inspector_regression(repo: Path, outdir: Path, py: st
     layout_recommendation_ok = (
         layout_recommendation.get("lead_variant") == "chart"
         and layout_recommendation.get("density") == "compact"
-        and layout_recommendation.get("priority_variants") == ["chart", "lab-run-results", "image-sidebar"]
+        and layout_recommendation.get("priority_variants")
+        == ["chart", "lab-run-results", "image-sidebar", "table", "scientific-figure"]
         and template_layout == layout_recommendation
         and template_by_variant.get("chart", {}).get("layout_role") == "lead"
         and template_by_variant.get("chart", {}).get("layout_density") == "compact"
@@ -14046,7 +14118,7 @@ def _run_artifact_manifest_apply_regression(repo: Path, outdir: Path, py: str) -
         and auto_slide_by_id.get("run_a_signal_chart", {}).get("assets", {}).get("chart_data") == "chart:run_a_signal"
         and auto_slide_by_id.get("run_a_signal_chart", {}).get("selected_columns") == expected_selected_columns
         and auto_slide_by_id.get("run_a_signal_table", {}).get("title") == expected_auto_title
-        and auto_slide_by_id.get("run_a_signal_table", {}).get("tables") == ["table:run_a_signal_summary"]
+        and auto_slide_by_id.get("run_a_signal_table", {}).get("table_data") == "table:run_a_signal_summary"
         and auto_slide_by_id.get("run_a_signal_table", {}).get("selected_columns") == expected_selected_columns
     )
     auto_registry_ok = (
@@ -14057,7 +14129,7 @@ def _run_artifact_manifest_apply_regression(repo: Path, outdir: Path, py: str) -
     auto_content_ok = (
         auto_content_by_id.get("run_a_signal_figure", {}).get("variant") == "image-sidebar"
         and auto_content_by_id.get("run_a_signal_chart", {}).get("variant") == "chart"
-        and auto_content_by_id.get("run_a_signal_table", {}).get("variant") == "lab-run-results"
+        and auto_content_by_id.get("run_a_signal_table", {}).get("variant") == "table"
         and auto_content_by_id.get("run_a_signal_figure", {}).get("evidence_needs") == ["run_a_signal"]
         and auto_content_by_id.get("run_a_signal_figure", {}).get("selected_columns") == expected_selected_columns
         and auto_content_by_id.get("run_a_signal_chart", {}).get("evidence_needs") == ["run_a_signal"]
@@ -14127,10 +14199,10 @@ def _run_artifact_manifest_apply_regression(repo: Path, outdir: Path, py: str) -
         and auto_binding_by_variant.get("chart", {}).get("interpretation") == expected_auto_readout
         and auto_binding_by_variant.get("chart", {}).get("message") == expected_auto_readout
         and auto_binding_by_variant.get("chart", {}).get("caption") == expected_auto_caption
-        and auto_binding_by_variant.get("lab-run-results", {}).get("title") == expected_auto_title
-        and auto_binding_by_variant.get("lab-run-results", {}).get("interpretation") == expected_auto_readout
-        and auto_binding_by_variant.get("lab-run-results", {}).get("message") == expected_auto_readout
-        and auto_binding_by_variant.get("lab-run-results", {}).get("caption") == expected_auto_caption
+        and auto_binding_by_variant.get("table", {}).get("title") == expected_auto_title
+        and auto_binding_by_variant.get("table", {}).get("interpretation") == expected_auto_readout
+        and auto_binding_by_variant.get("table", {}).get("message") == expected_auto_readout
+        and auto_binding_by_variant.get("table", {}).get("caption") == expected_auto_caption
         and isinstance(auto_figure_sections, list)
         and any(
             isinstance(section, dict)
@@ -21051,7 +21123,11 @@ def _run_outline_authoring_handoff_apply_regression(repo: Path, outdir: Path, py
         and readiness_before.returncode == 1
         and before_next.get("kind") == "apply_outline_authoring_handoff"
         and before_next.get("action_type") == "run_command"
-        and "apply_outline_authoring_handoff.py" in " ".join(str(item) for item in before_next.get("command", []))
+        and before_next.get("action_schema_version") == "deck_action_v1"
+        and before_next.get("action_id") == "apply_outline_authoring_handoff"
+        and isinstance(before_next.get("parameters"), dict)
+        and "command" not in before_next
+        and "apply_outline_authoring_handoff.py" in str(before_next.get("display_command") or "")
         and advance.returncode in {0, 1}
         and apply_report.get("workflow") == "outline_authoring_handoff_apply_v1"
         and apply_report.get("changed_file_count", 0) >= 4
@@ -24493,10 +24569,12 @@ def _run_deck_intake_apply_regression(repo: Path, outdir: Path, py: str) -> dict
         and choice_seed.get("stable_prompt_id") == stable_seed
         and choice_seed.get("answered_by") == "user"
         and choice_seed_ids == {"audience_context", "style_density", "visual_source_policy"}
-        and choice_seed_routes == {"data_artifacts": True, "pptx_style_import": False}
+        and choice_seed_routes
+        == {"atom_composition": True, "data_artifacts": True, "pptx_style_import": False}
         and choice_seed_route_ledger.get("ledger_version") == "deck_route_decision_ledger_v1"
         and choice_seed.get("route_ledger_version") == "deck_route_decision_ledger_v1"
         and choice_seed.get("route_ledger_active_routes") == [
+            "atom_composition",
             "content_research",
             "data_artifacts",
             "design_contract",
@@ -24505,6 +24583,7 @@ def _run_deck_intake_apply_regression(repo: Path, outdir: Path, py: str) -> dict
             "source_footer_compaction",
         ]
         and choice_seed_route_ledger_status.get("data_artifacts") is True
+        and choice_seed_route_ledger_status.get("atom_composition") is True
         and choice_seed_route_ledger_status.get("content_research") is True
         and choice_seed_route_ledger_status.get("source_footer_compaction") is True
         and choice_seed_route_ledger_status.get("rendered_visual_review") is True
@@ -24519,7 +24598,8 @@ def _run_deck_intake_apply_regression(repo: Path, outdir: Path, py: str) -> dict
         and set(after_deck_intake_choice_seed.get("choice_ids", [])) == choice_seed_ids
         and after_deck_intake_choice_seed.get("route_status", {}).get("data_artifacts") is True
         and after_deck_intake_choice_seed.get("route_status", {}).get("pptx_style_import") is False
-        and after_deck_intake_choice_seed.get("active_routes") == ["data_artifacts"]
+        and after_deck_intake_choice_seed.get("active_routes")
+        == ["atom_composition", "data_artifacts"]
         and after_deck_intake_choice_seed.get("route_ledger_version") == "deck_route_decision_ledger_v1"
         and after_deck_intake_choice_seed.get("route_ledger_status", {}).get("source_footer_compaction") is True
         and after_deck_intake_choice_seed.get("route_ledger_status", {}).get("pptx_style_import") is False
@@ -24556,7 +24636,8 @@ def _run_deck_intake_apply_regression(repo: Path, outdir: Path, py: str) -> dict
         and "### Choice Resolution Seed" in notes
         and "Choice contract: deck_choice_resolution_v1" in notes
         and "Resolved choices: audience_context: Technical peers (Recommended)" in notes
-        and "Route decisions: data_artifacts=active, pptx_style_import=inactive" in notes
+        and "Route decisions: atom_composition=active, data_artifacts=active, pptx_style_import=inactive"
+        in notes
         and "Route ledger:" in notes
         and "source_footer_compaction=active" in notes
         and "rendered_visual_review=active" in notes

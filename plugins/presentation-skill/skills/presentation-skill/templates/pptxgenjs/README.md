@@ -28,10 +28,13 @@ but still wants restrained heading/accent-rule rhythm.
 Deck-level structure is selected through one of eight composition grammars:
 Answer Pyramid, Evidence Plate, Care Pathway, Editorial Spread, Thesis Stage,
 Operating Grid, Public Docket, and Telemetry Canvas. Each grammar provides
-role systems for title, section, evidence, comparison, data, decision, and
-references. Keep its frame, navigation, and reading path coherent across the
-deck; use slide-level treatment overrides only for evidence fit, not to splice
-unrelated page systems together.
+v2 role contracts for title, section, evidence, comparison, chart, table,
+decision, and references. Contracts contain normalized semantic slots and
+render through reusable primitives, so native text, charts, and tables stay
+editable. `role_layout_variant` may be `primary`, `alternate`, or `dense`.
+Keep the grammar coherent; do not splice unrelated page systems together.
+New workspaces use v2 automatically. A v1-only workspace remains on the legacy
+role system until the explicit idempotent upgrader is run.
 The lower-level `page_system` values remain available for bounded rendering:
 `clinical-rail`, `board-ledger`, `editorial-field`, `command-canvas`,
 `lab-plate`, and `investor-thesis`.
@@ -60,7 +63,8 @@ silently falling back to the default renderer treatment.
 | File         | Responsibility                                                                 |
 | ------------ | ------------------------------------------------------------------------------ |
 | `presets.js` | Style presets (palette + font pair) keyed by the skill's canonical preset names. Exports `getPreset(name)` / `listPresets()`. |
-| `slides.js`  | One function per slide family, plus the shared chrome (dark title bar, footer, notes). Exports `renderTitle`, `renderSection`, `renderStandard`, `renderCards`, `renderSplit`, `renderTimeline`, `renderStats`, `renderTable`, `renderLabRunResults`, and canvas constants (`SLIDE_W`, `SLIDE_H`, `MARGIN_X`, `HEADER_TOP`, `TITLE_BAR_H`, `CONTENT_TOP`). |
+| `slides.js`  | Slide-family renderers, v2 role-contract recipes, and shared chrome. |
+| `role_layout_contracts.js` | Loads and validates the eight-grammar role-layout catalog and resolves bounded per-slide variants. |
 
 ## Slide family map
 

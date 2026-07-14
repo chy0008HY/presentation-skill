@@ -20,6 +20,7 @@ from taste_grammar_catalog import (
     renderer_role_systems_for_grammar,
     validate_taste_grammar_catalog,
 )
+from role_layout_contracts import renderer_role_contracts_for_grammar
 
 
 CATALOG_VERSION = "composition_grammar_catalog_v1"
@@ -102,6 +103,7 @@ def _record_from_grammar(grammar_id: str, *, style_preset: str = "") -> dict[str
     presets = [str(value) for value in spec.get("style_presets") or []]
     resolved_preset = style_preset if style_preset in presets else presets[0]
     role_systems = renderer_role_systems_for_grammar(grammar_id, preset=resolved_preset)
+    role_contracts = renderer_role_contracts_for_grammar(grammar_id, preset=resolved_preset)
     preferred_role_variants = _as_dict(spec.get("preferred_role_variants"))
     role_variant_map = {
         role: str((_as_list(preferred_role_variants.get(role)) or ["standard"])[0])
@@ -128,6 +130,7 @@ def _record_from_grammar(grammar_id: str, *, style_preset: str = "") -> dict[str
         ),
         "renderer_bias": copy.deepcopy(profile.get("renderer_treatment_defaults") or {}),
         "renderer_role_systems_v1": role_systems,
+        "renderer_role_contracts_v2": role_contracts,
         "narrative_arc": copy.deepcopy(spec.get("narrative_arc") or {}),
         "density": copy.deepcopy(spec.get("density") or {}),
         "grid": copy.deepcopy(spec.get("grid") or {}),
@@ -193,7 +196,7 @@ def validate_composition_grammar_catalog(catalog: dict[str, Any] | None = None) 
                 failures.append(f"{grammar_id}: missing {role}_system_id")
         for key in (
             "narrative_arc", "density", "grid", "reading_path", "preferred_role_variants",
-            "invariant_moves", "forbidden_moves", "renderer_role_systems_v1",
+            "invariant_moves", "forbidden_moves", "renderer_role_systems_v1", "renderer_role_contracts_v2",
         ):
             if record.get(key) in (None, {}, []):
                 failures.append(f"{grammar_id}: missing {key}")
@@ -310,7 +313,7 @@ def _compact_record(record: dict[str, Any]) -> dict[str, Any]:
     keys = (
         "grammar_id", "style_preset", "style_presets", "family", "lane", "description",
         "rhythm_treatments", "rhythm_pattern", "role_variant_map", "preferred_variants",
-        "renderer_bias", "renderer_role_systems_v1", "title_system_id", "section_system_id",
+        "renderer_bias", "renderer_role_systems_v1", "renderer_role_contracts_v2", "title_system_id", "section_system_id",
         "evidence_system_id", "comparison_system_id", "data_system_id", "decision_system_id",
         "references_system_id", "narrative_arc", "density", "grid", "reading_path",
         "preferred_role_variants", "invariant_moves", "forbidden_moves", "distinctive_moves",

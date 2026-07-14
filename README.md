@@ -7,9 +7,9 @@ A skill for coding agents that produces editable PowerPoint decks from structure
 [![Built with pptxgenjs](https://img.shields.io/badge/renderer-pptxgenjs-2563eb.svg)](templates/pptxgenjs/README.md)
 [![skills.sh](https://skills.sh/b/siril9/presentation-skill)](https://skills.sh/siril9/presentation-skill)
 
-![presentation-skill variant proof board](decks/native-vs-latest-random-topics-20260623/readme_images/presentation_skill_variant_proof.png)
+![v0.9 narrative role-layout systems](examples/v0.9_narrative_structures.jpg)
 
-*Representative rendered samples across title, section, evidence, data, comparison, decision, and process layouts.*
+*One topic rendered through eight color-independent narrative systems. The gallery deck remains editable.*
 
 Ask an agent for a lab report, board memo, investor update, clinical dashboard, policy brief, or scientific figure deck. The skill writes source JSON, routes style and content structure, builds an editable `.pptx`, and runs QA instead of shipping a screenshot or a stack of centered bullets.
 
@@ -39,21 +39,21 @@ Skill name: `presentation-skill`. Aliases for fuzzy skill matching and search: `
 ## What's actually in the box
 
 - **A pptxgenjs renderer with 16 content variants plus title and section slides.** `standard`, `split`, `cards-2`, `cards-3`, `timeline`, `stats`, `kpi-hero`, `comparison-2col`, `matrix`, `chart`, `table`, `lab-run-results`, `image-sidebar`, `scientific-figure`, `flow` (Mermaid), and `generated-image`. Each variant has its own layout discipline so a deck doesn't collapse into bullet-list-after-bullet-list.
-- **A preset system across 13 style families and 13 structural identities.** Lab report, executive clinical, board risk memo, investor reveal, editorial report, civic science policy, and so on. Each owns a palette, font pair, density profile, content treatments, and persistent geometry motif rather than borrowing one shared set of rails and borders.
-- **Eight first-class composition grammars above the 13 presets.** Answer Pyramid, Evidence Plate, Care Pathway, Editorial Spread, Thesis Stage, Operating Grid, Public Docket, and Telemetry Canvas each own a reading path, grid, title and section topology, evidence system, decision system, references posture, and narrative arc. Presets provide the bounded visual interpretation; the grammar controls how the argument is encountered.
+- **A preset system across 13 style families.** Lab report, executive clinical, board risk memo, investor reveal, editorial report, civic science policy, and so on. Each owns a palette, font pair, density profile, and bounded visual interpretation.
+- **Eight full-deck composition grammars above the presets.** Answer Pyramid, Evidence Plate, Care Pathway, Editorial Spread, Thesis Stage, Operating Grid, Public Docket, and Telemetry Canvas each own distinct role contracts for title, section, evidence, comparison, chart, table, decision, and references. The compiler turns normalized semantic slots into editable PowerPoint geometry; slide-level overrides stay bounded to `primary`, `alternate`, or `dense`.
 - **A descriptor-only style corpus (~2,200 records) atomized into a LEGO token atlas.** The corpus carries described palettes, layouts, density patterns, and structural motifs from public deck-like sources (no copied assets). It's processed into 311 composable atoms across 12 atom types (palette, typography, layout_motif, chart_treatment, table_treatment, header_treatment, footer_treatment, decorative_motif, density, arc_beat, rhythm_signature, content_treatment). A composition router queries the atlas to mix and match atoms across families per topic, so decks pull grammar — not just colors — from the corpus.
 - **A three-step QA loop.** Geometric checks (overflow, overlap, density), rendered-image visual inspection on JPGs, and a placeholder-text grep that catches leftover `TODO`/`lorem`/`xxx` strings. The visual-inspection prompt is biased toward finding problems, not confirming the deck looks fine.
 - **Workspace mode for decks you'll rebuild later.** `design_brief.json`, `content_plan.json`, `evidence_plan.json`, `asset_plan.json`, `outline.json`, and `notes.md` live in a folder. Readiness diagnostics tell the agent what to fix next instead of re-running blind.
 
 ## See it
 
-![Model-adaptive Europa signal triage proof deck](examples/model_adaptive_showcase_contact_sheet.jpg)
+![v0.9 evidence, chart, and table role-layout systems](examples/v0.9_evidence_data_structures.jpg)
 
-One source deck, seven content compositions: KPI hero, evidence mosaic, scorecard, figure atlas, native chart, lab ledger, and decision matrix. It demonstrates body-composition range and samples several page-system treatments; production decks normally keep one primary page system coherent.
+The same evidence, native chart, and editable table take eight different reading paths. Color is not counted by the structural gate.
 
-[![presentation-skill composition grammar proof board](examples/taste_grammar_showcase_contact_sheet.jpg)](https://github.com/siril9/presentation-skill)
+![v0.9 decision and references role-layout systems](examples/v0.9_decisions_sources.jpg)
 
-One topic, eight different argument systems. Each row shows the cover, section turn, evidence page, and decision page for a grammar selected by audience and evidence shape. The rendered QA now clusters title, section, evidence, comparison, chart, table, decision, references, and dense-content stress slides independently; color and decorative rules do not count as structural diversity.
+Decision conditions and source registers no longer collapse into one matrix and one table. The [64-slide gallery](examples/v0.9_full_deck_taste_grammar_gallery.pptx) is an editable `.pptx`, not a sheet of screenshots.
 
 [![Codex native vs updated presentation-skill comparison](decks/native-vs-latest-random-topics-20260623/readme_images/codex_native_vs_updated_clean_three_topics.png)](https://github.com/siril9/presentation-skill/releases/tag/v0.7.0)
 
@@ -75,7 +75,7 @@ npx skills add https://github.com/siril9/presentation-skill \
 Add this repo as a Codex plugin marketplace, then open `/plugins` in Codex and install `presentation-skill` from the **Presentation Skill** marketplace:
 
 ```bash
-codex plugin marketplace add siril9/presentation-skill --ref v0.8.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.9.0
 ```
 
 For local development against a checkout:
@@ -94,7 +94,7 @@ Clone or copy this repo into your Codex skills directory:
 git clone https://github.com/siril9/presentation-skill \
   $CODEX_HOME/skills/presentation-skill
 cd $CODEX_HOME/skills/presentation-skill
-pip install python-pptx "markitdown[pptx]"
+pip install python-pptx "markitdown[pptx]" matplotlib pandas openpyxl
 npm install
 ```
 
@@ -213,6 +213,7 @@ Copy-ready community posts and curation-request text live in [`docs/PROMOTION.md
 
 ## Releases
 
+- [`v0.9.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.9.0) — full-deck role-layout compiler, eight structural systems per role, explicit v1-to-v2 workspace migration, typed readiness actions, and a 64-slide editable proof gallery.
 - [`v0.8.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.8.0) — Codex plugin packaging, repo marketplace entry, synced plugin skill snapshot, and marketplace install docs.
 - [`v0.7.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.7.0) — optional first-class atom composition in the normal deck-start/design-contract/style-router workflow, plus README proof boards for renderer variants, style families, and Codex-native vs updated-skill comparison.
 - [`v0.6.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.6.0) — topic-aware atom router, stricter reproducible composition prompts, readable stats rendering, refreshed random-topic evidence gallery.

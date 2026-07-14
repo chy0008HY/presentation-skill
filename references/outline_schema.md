@@ -58,6 +58,9 @@ If `deck_style`/`compliance` are omitted, current behavior remains:
 - `metadata.renderer_role_systems_v1`: resolved composition grammar with
   renderer-real title, section, evidence, comparison, data, decision, and
   references system IDs plus the narrative arc and grid contract
+- `metadata.renderer_role_contracts_v2`: normalized role-layout contracts for
+  title, section, evidence, comparison, chart, table, decision, and references;
+  new workspaces use this automatically, while v1-only workspaces stay pinned
 - `deck_style.emoji_mode`: `none`
 - `deck_style.research_visual_mode`: `false`
 - `deck_style.header_mode`: preset treatment (`bar`, `stack`, `eyebrow`, or
@@ -108,6 +111,11 @@ If `deck_style`/`compliance` are omitted, current behavior remains:
 - `metadata.renderer_role_systems_v1`: normal-workflow composition contract.
   Keep its role-system IDs coherent; explicit slide variants may adapt to the
   evidence without replacing the complete grammar.
+- `metadata.renderer_role_contracts_v2`: v2 role-layout contract selected by
+  the grammar router. Do not hand-edit normalized slots in ordinary outlines.
+- `role_layout_variant`: optional per-slide bounded override:
+  `primary | alternate | dense`. This chooses a contract-supported treatment;
+  it does not expose coordinates.
 - `emoji_mode`: `none | selective`
 - `research_visual_mode`: boolean. Use `true` when a deck should actively use
   source-backed images/figures and attribution, usually after running

@@ -796,6 +796,7 @@ Return ONLY valid JSON with this shape:
     "style_atom_composition": {{"schema_version": "style_atom_composition_v1"}},
     "routing_rationale": ["why the atom seed did or did not fit this topic"]
   }},
+  "renderer_role_contracts_v2": null,
   "report_structure_contract": {{
     "structure_version": "style_reference_report_structure_contract_v1",
     "primary_layout_playbook_id": "selected reference id",
