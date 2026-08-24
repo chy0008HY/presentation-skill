@@ -9,6 +9,7 @@ import hashlib
 import json
 import re
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 from style_treatment_profiles import preset_treatment_profile
@@ -338,6 +339,188 @@ def compact_grammar_route(route: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+V2_ROLE_VARIANT_CANDIDATES = {
+    "title": ["title"],
+    "section": ["section"],
+    "evidence": ["cards-2", "cards-3", "stats", "timeline"],
+    "comparison": ["comparison-2col"],
+    "chart": ["chart"],
+    "table": ["table"],
+    "decision": ["matrix", "standard"],
+    "references": ["table", "matrix"],
+}
+
+
+def _normalize_agent_profile(value: str) -> str:
+    aliases = {
+        "auto": "balanced",
+        "fast": "fast",
+        "luna": "fast",
+        "balanced": "balanced",
+        "terra": "balanced",
+        "quality-first": "quality-first",
+        "sol": "quality-first",
+    }
+    return aliases.get(str(value or "auto").strip().lower(), "balanced")
+
+
+def quick_deck_agent_brief(
+    route: dict[str, Any],
+    *,
+    slide_count: int,
+    agent_profile: str = "auto",
+) -> dict[str, Any]:
+    """Return the small normal-workflow handoff a model should reason over."""
+    primary = _as_dict(route.get("primary"))
+    profile = _normalize_agent_profile(agent_profile)
+    arc = _as_dict(primary.get("narrative_arc"))
+    stages = [str(value) for value in _as_list(arc.get("stages")) if str(value).strip()]
+    middle_blueprint = [
+        ("evidence", "stats", "establish context and stakes"),
+        ("chart", "chart", "show the decisive quantitative evidence"),
+        ("comparison", "comparison-2col", "compare alternatives or tradeoffs"),
+        ("decision", "matrix", "state the recommendation and guardrails"),
+        ("evidence", "timeline", "show implementation, ownership, or sequence"),
+        ("evidence", "cards-2", "add one bounded proof or implication"),
+        ("decision", "standard", "close an unresolved decision or action"),
+    ]
+    middle_count = max(1, slide_count - 2)
+    selected = middle_blueprint[:middle_count]
+    while len(selected) < middle_count:
+        selected.append(middle_blueprint[(len(selected) - len(middle_blueprint)) % len(middle_blueprint)])
+    sequence: list[dict[str, Any]] = [
+        {
+            "slide": 1,
+            "role": "title",
+            "variant": "title",
+            "intent": stages[0] if stages else "governing question or answer",
+        }
+    ]
+    for index, (role, variant, story_job) in enumerate(selected, start=2):
+        stage_index = min(index - 1, max(0, len(stages) - 1))
+        sequence.append(
+            {
+                "slide": index,
+                "role": role,
+                "variant": variant,
+                "intent": stages[stage_index] if stages else story_job,
+            }
+        )
+    sequence.append(
+        {
+            "slide": slide_count,
+            "role": "references",
+            "variant": "table",
+            "intent": stages[-1] if stages else "sources and accountability",
+        }
+    )
+    skill_root = Path(__file__).resolve().parent.parent
+    runtime = skill_root / "scripts" / "python_runtime.py"
+    entrypoint = skill_root / "scripts" / "present.py"
+    readability_contract = {
+        "min_title_pt": 28,
+        "min_body_pt": 16,
+        "min_caption_pt": 9,
+        "min_footer_pt": 9,
+        "min_metadata_pt": 9,
+        "max_title_lines": 2,
+    }
+    candidate_limit = {"fast": 1, "balanced": 2, "quality-first": 3}[profile]
+    candidates = [primary, *_as_list(route.get("alternatives"))][:candidate_limit]
+    route_candidates: list[dict[str, Any]] = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        candidate_arc = _as_dict(candidate.get("narrative_arc"))
+        route_candidates.append(
+            {
+                "grammar_id": candidate.get("grammar_id"),
+                "style_preset": candidate.get("style_preset"),
+                "lane": candidate.get("lane"),
+                "why": _as_list(candidate.get("selection_reasons"))[:2]
+                or [candidate.get("description")],
+                "story_shape": {
+                    "stages": _as_list(candidate_arc.get("stages"))[:6],
+                    "reading_path": _as_list(candidate.get("reading_path"))[:5],
+                    "role_variants": _as_dict(candidate.get("role_variant_map")),
+                    "must_do": _as_list(candidate.get("invariant_moves"))[:2],
+                },
+            }
+        )
+    return {
+        "schema_version": "quick_deck_agent_brief/v3",
+        "topic": route.get("topic"),
+        "agent_profile": profile,
+        "route_mode": "deterministic" if profile == "fast" else "model-select-from-bounded-candidates",
+        "route_candidates": route_candidates,
+        "fallback_route": {
+            "style_preset": primary.get("style_preset"),
+            "grammar_id": primary.get("grammar_id"),
+        },
+        "story": {
+            "stages": stages,
+            "reading_path": primary.get("reading_path"),
+            "must_do": _as_list(primary.get("invariant_moves"))[:3],
+            "avoid": _as_list(primary.get("forbidden_moves"))[:3],
+        },
+        "requested_variants": route.get("requested_variants"),
+        "renderer": {
+            "role_variants": V2_ROLE_VARIANT_CANDIDATES,
+            "layout_variants": ["primary", "alternate", "dense"],
+        },
+        "outline_contract": {
+            "root_required": ["title", "deck_style", "slides"],
+            "deck_style": {
+                "style_preset": "copy from the chosen route candidate",
+                "composition_grammar": "copy grammar_id from the same candidate",
+                "style_seed": "<stable-topic-slug>",
+                "header_variant": "auto",
+                "footer_mode": "source-line",
+                "footer_page_numbers": True,
+                "readability_contract": readability_contract,
+            },
+            "slide_common": {
+                "type": "title | content",
+                "role": "use starter_sequence role",
+                "variant": "use starter_sequence variant",
+                "slide_intent": "use starter_sequence intent",
+                "title": "assertion or governing question",
+                "sources": ["stable source IDs such as S1"],
+            },
+            "payload_by_variant": {
+                "title": ["title", "subtitle", "kicker"],
+                "stats/cards-2/cards-3": ["facts: [{value, label, detail}]"],
+                "chart": ["chart: {type, categories, series: [{name, values}], facts?}"],
+                "table/references": ["table: {headers, rows, column_weights?}"],
+                "comparison-2col": ["left: {title, bullets}", "right: {title, bullets}"],
+                "matrix/decision": ["quadrants: [{title, body}]", "summary_callout?"],
+                "timeline": ["milestones: [{label, title, body}]"],
+            },
+            "content_limits": {
+                "slides": slide_count,
+                "facts": "2-4",
+                "table": "prefer <=6 columns and <=7 rows",
+                "timeline": "3-5 milestones",
+            },
+        },
+        "starter_sequence": sequence,
+        "authoring_rules": [
+            "Choose one route candidate from the evidence and audience; copy its preset and grammar into deck_style. Use the fallback when uncertain.",
+            "Adapt the sequence to the evidence; role names the editable object and slide_intent names the story job.",
+            "Avoid more than two consecutive slides with the same concrete variant.",
+            "Shorten or split content before shrinking below the readability contract.",
+            "Use the finalizer report and contact sheet for one source repair pass.",
+        ],
+        "commands": {
+            "finalize": (
+                f"python3 {runtime} {entrypoint} finalize "
+                "--outline <outline.json> --output <output.pptx> --qa-dir <qa-dir>"
+            ),
+            "repair_loop": "Read <qa-dir>/qa_report.json and contact sheet, edit outline.json, rerun finalize once.",
+        },
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build or route the canonical composition-grammar catalog.")
     parser.add_argument("--summary", action="store_true", help="Validate and summarize the eight grammar routes.")
@@ -345,6 +528,17 @@ def main() -> int:
     parser.add_argument("--user-prompt", default="")
     parser.add_argument("--style-preset", default="")
     parser.add_argument("--limit", type=int, default=3)
+    parser.add_argument(
+        "--agent-brief",
+        action="store_true",
+        help="Emit the compact normal-workflow handoff instead of full normalized contracts.",
+    )
+    parser.add_argument("--slide-count", type=int, default=7)
+    parser.add_argument(
+        "--agent-profile",
+        default="auto",
+        help="auto, fast/luna, balanced/terra, or quality-first/sol",
+    )
     args = parser.parse_args()
     if args.summary or not (args.topic or args.user_prompt or args.style_preset):
         print(json.dumps(validate_composition_grammar_catalog(), indent=2, ensure_ascii=False))
@@ -355,6 +549,19 @@ def main() -> int:
         style_preset=args.style_preset,
         limit=max(1, min(3, args.limit)),
     )
+    if args.agent_brief:
+        print(
+            json.dumps(
+                quick_deck_agent_brief(
+                    route,
+                    slide_count=max(3, min(30, args.slide_count)),
+                    agent_profile=args.agent_profile,
+                ),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
     print(json.dumps(compact_grammar_route(route), indent=2, ensure_ascii=False))
     return 0
 

@@ -1,6 +1,6 @@
 {
   "name": "presentation-skill",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Source-first PowerPoint/PPTX generation for Codex and ChatGPT agents.",
   "author": {
     "name": "Sirilsengolraj",
@@ -26,8 +26,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "presentation-skill",
-    "shortDescription": "Build editable PowerPoint decks from JSON with style routing, artifacts, and QA.",
-    "longDescription": "A source-first PowerPoint/PPTX workflow for Codex and ChatGPT agents. The bundled skill writes outline.json, compiles eight full-deck role-layout grammars into editable pptxgenjs geometry, routes topics through 13 style families, creates chart/table/figure artifacts, and runs QA for geometry, readability, visual review, placeholder text, and reproducibility.",
+    "shortDescription": "Build editable PowerPoint decks with model-adaptive style routing and QA.",
+    "longDescription": "A lightweight source-first PowerPoint/PPTX workflow for Codex and ChatGPT agents. Luna, Terra, and Sol receive bounded model-appropriate grammar choices; deterministic scripts turn outline.json, data, and figures into editable decks and run geometry, visual, accessibility, placeholder, and reproducibility QA.",
     "developerName": "Sirilsengolraj",
     "category": "Productivity",
     "capabilities": [

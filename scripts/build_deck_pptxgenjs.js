@@ -61,11 +61,13 @@ function configureNodePath() {
 configureNodePath();
 
 let PptxGenJS;
+let JSZip;
 try {
   PptxGenJS = require('pptxgenjs');
+  JSZip = require('jszip');
 } catch (err) {
   console.error(
-    'Error: missing dependency "pptxgenjs". Install with: npm install pptxgenjs\n' +
+    'Error: missing dependency "pptxgenjs" or "jszip". Run the repository setup before building.\n' +
       'Or set PPTX_NODE_MODULES to a directory that contains it.',
   );
   process.exit(2);
@@ -79,6 +81,7 @@ const {
   contractsForGrammar,
   validateResolvedRoleContracts,
 } = require(path.join(TEMPLATES_DIR, 'role_layout_contracts.js'));
+const { resolveRenderPlan } = require(path.join(TEMPLATES_DIR, 'render_plan.js'));
 
 // ---------------------------------------------------------------------------
 // CLI parsing
@@ -90,6 +93,7 @@ function parseArgs(argv) {
     output: '',
     stylePreset: DEFAULT_PRESET_NAME,
     assetRoot: '',
+    renderPlanDiagnostics: false,
   };
   for (let i = 2; i < argv.length; i += 1) {
     const tok = argv[i];
@@ -116,6 +120,9 @@ function parseArgs(argv) {
       case '--asset-root':
         args.assetRoot = next();
         break;
+      case '--render-plan-diagnostics':
+        args.renderPlanDiagnostics = true;
+        break;
       default:
         if (tok.startsWith('--outline=')) args.outline = tok.slice('--outline='.length);
         else if (tok.startsWith('--output=')) args.output = tok.slice('--output='.length);
@@ -137,7 +144,8 @@ function printUsage() {
     '         --outline <path/to/outline.json> \\',
     '         --output  <path/to/out.pptx> \\',
     '         [--style-preset executive-clinical] \\',
-    '         [--asset-root <workspace>]',
+    '         [--asset-root <workspace>] \\',
+    '         [--render-plan-diagnostics]',
     '',
     `Presets: ${listPresets().join(' | ')}`,
   ].join('\n');
@@ -657,14 +665,14 @@ const PALETTE_LIBRARY = {
     line: 'BAE6FD',
   },
   energy_sunset_v1: {
-    bg: 'FFF7ED',
-    bg_dark: '431407',
+    bg: 'F6F8F5',
+    bg_dark: '173B3F',
     surface: 'FFFFFF',
-    text: '7C2D12',
-    text_muted: '9A3412',
-    accent_primary: 'EA580C',
-    accent_secondary: 'F59E0B',
-    line: 'FED7AA',
+    text: '243133',
+    text_muted: '5F6F70',
+    accent_primary: 'C65D3B',
+    accent_secondary: '2F7D76',
+    line: 'D9DED8',
   },
   enterprise_graphite_v1: {
     bg: 'F8FAFC',
@@ -938,6 +946,30 @@ const PRESET_TREATMENTS = {
     matrix_mode: 'cards',
   },
 };
+
+const HEADER_VARIANTS_BY_PRESET = {
+  'executive-clinical': ['left-accent', 'split-rule', 'top-bottom-rule', 'plain'],
+  'data-heavy-boardroom': ['split-rule', 'left-accent', 'top-bottom-rule', 'plain'],
+  'forest-research': ['left-accent', 'split-rule', 'plain', 'top-bottom-rule'],
+  'sunset-investor': ['title-rule', 'left-accent', 'side-rail', 'split-rule'],
+  'lavender-ops': ['split-rule', 'left-accent', 'plain', 'top-bottom-rule'],
+  'warm-terracotta': ['split-rule', 'title-rule', 'left-accent', 'plain'],
+  'paper-journal': ['split-rule', 'top-bottom-rule', 'plain', 'title-rule'],
+  'editorial-minimal': ['title-rule', 'plain', 'split-rule', 'left-accent'],
+  'arctic-minimal': ['plain', 'split-rule', 'title-rule', 'left-accent'],
+  'bold-startup-narrative': ['left-accent', 'title-rule', 'side-rail', 'split-rule'],
+  'charcoal-safety': ['side-rail', 'title-rule', 'split-rule', 'plain'],
+  'midnight-neon': ['side-rail', 'split-rule', 'title-rule', 'plain'],
+  'lab-report': ['left-accent', 'split-rule', 'title-rule', 'side-rail', 'top-bottom-rule', 'plain'],
+};
+
+// Keep the exported treatment catalog on the same denominator as the Python
+// resolver. Consumers that inspect the catalog directly should see the same
+// automatic cross-preset header behavior used during rendering.
+for (const [presetName, treatment] of Object.entries(PRESET_TREATMENTS)) {
+  if (!treatment.header_variant) treatment.header_variant = 'auto';
+  treatment.header_variants = HEADER_VARIANTS_BY_PRESET[presetName].slice();
+}
 
 const ROLE_SYSTEMS_BY_GRAMMAR = {
   'consulting-answer-pyramid': {
@@ -1380,7 +1412,8 @@ function preRenderMermaid(sourcePath, outlineDir) {
     console.warn('[pptxgenjs] render_mermaid.py missing; skipping mermaid for', abs);
     return '';
   }
-  const r = spawnSync('python3', [script, '--input', abs, '--output', target], {
+  const python = process.env.PRESENTATION_SKILL_PYTHON || process.env.PYTHON || 'python3';
+  const r = spawnSync(python, [script, '--input', abs, '--output', target], {
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
   });
@@ -1408,6 +1441,8 @@ function normalizeSlide(spec, outlineDir) {
   }
   const mermaidSrc = assets.mermaid_source || assets.mermaid;
   if (mermaidSrc) {
+    const sourcePath = resolveAssetPath(mermaidSrc, outlineDir);
+    if (sourcePath && fs.existsSync(sourcePath)) out.__mermaidSourcePath = sourcePath;
     const rendered = preRenderMermaid(mermaidSrc, outlineDir);
     if (rendered) out.__mermaidPath = rendered;
   }
@@ -1466,7 +1501,7 @@ function normalizeSlide(spec, outlineDir) {
   // diagram), promote it to a synthesized 'flow' variant so renderSlide
   // can dispatch to a diagram-aware renderer. Preserve original variant
   // for downstream metadata in case callers want it.
-  const hasFlow = out.__mermaidPath || out.__diagramPath;
+  const hasFlow = out.__mermaidPath || out.__diagramPath || out.__mermaidSourcePath;
   if (hasFlow && (out.variant === 'standard' || out.variant === 'content' || out.variant === 'flow')) {
     out.variant = 'flow';
   }
@@ -1523,21 +1558,54 @@ function normalizeSlide(spec, outlineDir) {
 }
 
 function renderSlide(pptx, pSlide, slide, preset) {
-  const t = slide.type;
+  const renderPlan = slide.__renderPlan || resolveRenderPlan(slide, preset);
+  slide.__renderPlan = renderPlan;
 
-  if (t === 'title') {
+  const finalizeRenderReceipt = (executedVariant) => {
+    const execution = slide.__roleContractExecution && typeof slide.__roleContractExecution === 'object'
+      ? slide.__roleContractExecution
+      : null;
+    const plannedV2 = renderPlan.contractSource === 'v2' && String(renderPlan.adapter || '').startsWith('v2:');
+    const contractApplied = Boolean(
+      execution && execution.applied && execution.adapter === renderPlan.adapter,
+    );
+    slide.__renderReceipt = {
+      schema_version: 'renderer-execution-receipt/v1',
+      planned_adapter: renderPlan.adapter,
+      planned_contract_source: renderPlan.contractSource,
+      executed_adapter: execution ? execution.adapter : `renderer:${executedVariant}`,
+      adapter_executed: true,
+      contract_applied: contractApplied,
+      canonical_role: renderPlan.canonicalRole,
+      effective_variant: executedVariant,
+      grammar_id: execution ? execution.grammar_id : '',
+      system_id: execution ? execution.system_id : '',
+      layout_variant: execution ? execution.layout_variant : '',
+      consumed_slots: execution ? execution.consumed_slots : [],
+      adaptation: execution ? String(execution.adaptation || '') : '',
+      source_system_id: execution ? String(execution.source_system_id || '') : '',
+      fallback_reason: plannedV2 && !contractApplied
+        ? `planned_v2_adapter_not_applied:${renderPlan.adapter}`
+        : renderPlan.fallbackReason,
+    };
+    return slide.__renderReceipt;
+  };
+
+  if (renderPlan.effectiveVariant === 'title') {
     slides.renderTitle(pptx, pSlide, slide, preset);
+    finalizeRenderReceipt('title');
     return;
   }
-  if (t === 'section') {
+  if (renderPlan.effectiveVariant === 'section') {
     slides.renderSection(pptx, pSlide, slide, preset);
+    finalizeRenderReceipt('section');
     return;
   }
 
   // Skip the universal summary callout when the variant already carries
   // its own bottom emphasis (kpi-hero IS the callout; comparison-2col
   // with a verdict already has a strip). Matches the python dispatcher.
-  const variantForCallout = String(slide.variant || '').trim().toLowerCase();
+  const variantForCallout = renderPlan.effectiveVariant;
   const hasVerdict = !!String(slide.verdict || '').trim();
   const imageSidebarMode = String(slide.image_sidebar_mode || preset.image_sidebar_mode || '').trim().toLowerCase();
   const skipCallout =
@@ -1547,7 +1615,7 @@ function renderSlide(pptx, pSlide, slide, preset) {
     (variantForCallout === 'comparison-2col' && hasVerdict);
 
   // content variants
-  let variant = slide.variant;
+  let variant = renderPlan.effectiveVariant;
   if (UNSUPPORTED_VARIANTS.has(variant)) {
     if (variant === 'matrix') {
       // Kept for older versions where matrix lived in UNSUPPORTED_VARIANTS.
@@ -1622,6 +1690,74 @@ function renderSlide(pptx, pSlide, slide, preset) {
   if (!skipCallout && !slide.__roleContractConsumesSummary) {
     slides.addSummaryCallout(pptx, pSlide, slide, preset);
   }
+  finalizeRenderReceipt(variant);
+}
+
+function attachAccessibilityDefaults(pSlide, slideData) {
+  const slideTitle = String(slideData.title || slideData.section_title || 'Untitled slide').trim();
+  const figure = slideData.figure && typeof slideData.figure === 'object' ? slideData.figure : {};
+  const imageGeneration = slideData.image_generation && typeof slideData.image_generation === 'object'
+    ? slideData.image_generation
+    : {};
+  const visualAlt = [
+    slideData.image_alt_text,
+    slideData.figure_alt_text,
+    slideData.alt_text,
+    figure.alt_text,
+    figure.caption,
+    slideData.figure_caption,
+    slideData.caption,
+    imageGeneration.alt_text,
+  ].map((value) => String(value || '').trim()).find(Boolean) || '';
+
+  const originalAddImage = pSlide.addImage.bind(pSlide);
+  pSlide.addImage = (options = {}) => {
+    const next = { ...options };
+    const x = Number(next.x || 0);
+    const y = Number(next.y || 0);
+    const w = Number(next.w || 0);
+    const h = Number(next.h || 0);
+    const area = w * h;
+    const isBackground = x <= 0.02 && y <= 0.02
+      && w >= slides.SLIDE_W * 0.95 && h >= slides.SLIDE_H * 0.95;
+    const isDecorative = isBackground || area <= 0.22;
+    if (!next.objectName) {
+      next.objectName = isDecorative
+        ? `decorative-${isBackground ? 'background' : 'icon'}`
+        : `Content visual - ${slideTitle}`;
+    }
+    if (!isDecorative && !next.altText && visualAlt) {
+      next.altText = visualAlt;
+    }
+    return originalAddImage(next);
+  };
+
+  const originalAddChart = pSlide.addChart.bind(pSlide);
+  pSlide.addChart = (type, series, options = {}) => {
+    const next = { ...options };
+    const chartSeries = Array.isArray(series) ? series : [];
+    const seriesNames = chartSeries
+      .map((item) => String((item && item.name) || '').trim())
+      .filter(Boolean)
+      .slice(0, 4);
+    const categories = chartSeries
+      .flatMap((item) => Array.isArray(item && item.labels) ? item.labels : [])
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+      .filter((item, index, values) => values.indexOf(item) === index)
+      .slice(0, 6);
+    if (!next.objectName) next.objectName = `Chart - ${slideTitle}`;
+    if (!next.altText) {
+      const seriesClause = seriesNames.length ? ` Series: ${seriesNames.join(', ')}.` : '';
+      const categoryClause = categories.length ? ` Categories: ${categories.join(', ')}.` : '';
+      next.altText = String(
+        slideData.chart_alt_text
+        || slideData.alt_text
+        || `Chart supporting ${slideTitle}.${seriesClause}${categoryClause}`,
+      ).trim();
+    }
+    return originalAddChart(type, series, next);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1731,6 +1867,70 @@ async function resolveIconsForSlides(slides, outlineDir, preset) {
   await Promise.all(tasks);
 }
 
+function xmlEscape(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function replaceXmlElement(xml, qualifiedName, value) {
+  const escapedName = qualifiedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const paired = new RegExp(`<${escapedName}(?:\\s[^>]*)?>[\\s\\S]*?<\\/${escapedName}>`, 'i');
+  const selfClosing = new RegExp(`<${escapedName}(?:\\s[^>]*)?\\s*\\/>`, 'i');
+  const replacement = `<${qualifiedName}>${xmlEscape(value)}</${qualifiedName}>`;
+  if (paired.test(xml)) return xml.replace(paired, replacement);
+  if (selfClosing.test(xml)) return xml.replace(selfClosing, replacement);
+  return xml;
+}
+
+async function sanitizeOfficePackageMetadata(packagePath, metadata) {
+  const rewriteProperties = async (zip) => {
+    const coreEntry = zip.file('docProps/core.xml');
+    if (coreEntry) {
+      let core = await coreEntry.async('string');
+      core = replaceXmlElement(core, 'dc:creator', metadata.author);
+      core = replaceXmlElement(core, 'cp:lastModifiedBy', metadata.author);
+      zip.file('docProps/core.xml', core);
+    }
+    const appEntry = zip.file('docProps/app.xml');
+    if (appEntry) {
+      let app = await appEntry.async('string');
+      app = replaceXmlElement(app, 'Company', metadata.company);
+      zip.file('docProps/app.xml', app);
+    }
+  };
+
+  const outer = await JSZip.loadAsync(fs.readFileSync(packagePath));
+  await rewriteProperties(outer);
+  const embeddedWorkbooks = Object.keys(outer.files)
+    .filter((name) => /^ppt\/embeddings\/.*\.xlsx$/i.test(name));
+  for (const workbookName of embeddedWorkbooks) {
+    const entry = outer.file(workbookName);
+    if (!entry) continue;
+    const workbook = await JSZip.loadAsync(await entry.async('nodebuffer'));
+    await rewriteProperties(workbook);
+    outer.file(
+      workbookName,
+      await workbook.generateAsync({
+        type: 'nodebuffer',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 },
+      }),
+    );
+  }
+  fs.writeFileSync(
+    packagePath,
+    await outer.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 },
+    }),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -1752,13 +1952,36 @@ async function main() {
   pptx.layout = 'PPTX_SKILL_16x9';
   pptx.title = String(data.title || 'Deck');
   pptx.subject = String(data.subtitle || '');
+  const documentMetadata = data.document_metadata && typeof data.document_metadata === 'object'
+    ? data.document_metadata
+    : {};
+  const neutralMetadata = {
+    author: String(documentMetadata.author || 'Presentation Team').trim() || 'Presentation Team',
+    company: String(documentMetadata.company || '').trim(),
+  };
+  pptx.author = neutralMetadata.author;
+  pptx.company = neutralMetadata.company;
 
   const slidesWithSources = withAutoImageSourcesSlide(slideList, data, assetRoot);
   const normalized = slidesWithSources.map((s) => normalizeSlide(s, assetRoot));
   normalized.forEach((slide, idx) => {
     slide.__slideIndex = idx + 1;
     slide.__slideCount = normalized.length;
+    slide.__renderPlan = resolveRenderPlan(slide, preset);
   });
+
+  const renderPlanDiagnostics = args.renderPlanDiagnostics || /^(1|true|yes)$/i.test(
+    String(process.env.PRESENTATION_SKILL_RENDER_PLAN_DIAGNOSTICS || ''),
+  );
+  if (renderPlanDiagnostics) {
+    normalized.forEach((slide) => {
+      console.log(`[pptxgenjs] render-plan ${JSON.stringify({
+        slide: slide.__slideIndex,
+        title: String(slide.title || ''),
+        ...slide.__renderPlan,
+      })}`);
+    });
+  }
 
   // Pre-resolve icon slugs to PNG files. Slugs with a colon (e.g.
   // "fa6:FaLightbulb") are react-icons that we rasterize on-the-fly using
@@ -1768,6 +1991,7 @@ async function main() {
 
   for (const slide of normalized) {
     const pSlide = pptx.addSlide();
+    attachAccessibilityDefaults(pSlide, slide);
     renderSlide(pptx, pSlide, slide, preset);
   }
 
@@ -1781,6 +2005,7 @@ async function main() {
     : fs.existsSync(outAbs + '.pptx')
     ? outAbs + '.pptx'
     : outAbs;
+  await sanitizeOfficePackageMetadata(produced, neutralMetadata);
   console.log(`Wrote ${produced} (${normalized.length} slides, preset=${args.stylePreset})`);
 }
 
@@ -1800,5 +2025,7 @@ module.exports = {
   main,
   normalizeSlide,
   renderSlide,
+  resolveRenderPlan,
   resolveIconsForSlides,
+  sanitizeOfficePackageMetadata,
 };

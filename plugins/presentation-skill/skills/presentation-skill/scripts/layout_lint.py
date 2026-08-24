@@ -102,11 +102,59 @@ class ShapeInfo:
             and self.width >= 1.4
             and self.height >= 0.7
             and not self.is_line_like
+            and not self.is_role_contract_slot
         )
+
+    @property
+    def is_role_contract_slot(self) -> bool:
+        return self.name.strip().lower().startswith("role-contract-slot:")
 
     @property
     def is_rounded_rectangle(self) -> bool:
         return self.auto_shape_type_name == "ROUNDED_RECTANGLE"
+
+
+def _rectangle_union_area(
+    shapes: list[ShapeInfo],
+    *,
+    slide_w: float,
+    slide_h: float,
+) -> float:
+    """Return occupied area without double-counting nested text and panels."""
+    rectangles: list[tuple[float, float, float, float]] = []
+    for shape in shapes:
+        left = max(0.0, min(slide_w, shape.left))
+        right = max(0.0, min(slide_w, shape.right))
+        top = max(0.0, min(slide_h, shape.top))
+        bottom = max(0.0, min(slide_h, shape.bottom))
+        if right > left and bottom > top:
+            rectangles.append((left, top, right, bottom))
+    if not rectangles:
+        return 0.0
+
+    x_edges = sorted({edge for rect in rectangles for edge in (rect[0], rect[2])})
+    area = 0.0
+    for left, right in zip(x_edges, x_edges[1:]):
+        if right <= left:
+            continue
+        intervals = sorted(
+            (top, bottom)
+            for rect_left, top, rect_right, bottom in rectangles
+            if rect_left < right and rect_right > left
+        )
+        if not intervals:
+            continue
+        covered_y = 0.0
+        current_top, current_bottom = intervals[0]
+        for top, bottom in intervals[1:]:
+            if top <= current_bottom:
+                current_bottom = max(current_bottom, bottom)
+            else:
+                covered_y += current_bottom - current_top
+                current_top, current_bottom = top, bottom
+        covered_y += current_bottom - current_top
+        area += (right - left) * covered_y
+    return area
 
 
 def _shape_text(shape: Any) -> str:
@@ -428,6 +476,11 @@ def _lint_slide(
         for shape in shapes
         if shape.is_card_candidate and not _is_full_bleed_background(shape, slide_w, slide_h)
     ]
+    role_contract_slots = [
+        shape
+        for shape in shapes
+        if shape.is_role_contract_slot and not _is_full_bleed_background(shape, slide_w, slide_h)
+    ]
     rails = [
         shape
         for shape in shapes
@@ -436,7 +489,7 @@ def _lint_slide(
     violations: list[dict[str, Any]] = []
 
     # Margin checks for meaningful blocks.
-    for shape in cards:
+    for shape in [*cards, *role_contract_slots]:
         if shape.left < margin_x - edge_tol:
             delta = abs(shape.left - margin_x)
             violations.append(
@@ -649,7 +702,15 @@ def _lint_slide(
         for shape in content_shapes
         if not _is_full_bleed_background(shape, slide_w, slide_h)
     ]
-    overload_area = sum(shape.area for shape in overload_shapes)
+    # Panels, table cells, and the text inside them overlap by design. Summing
+    # their areas makes a well-filled editable slide look more than 100% full.
+    # Use occupied union area for the overload gate while retaining the legacy
+    # density score for report continuity.
+    overload_area = _rectangle_union_area(
+        overload_shapes,
+        slide_w=slide_w,
+        slide_h=slide_h,
+    )
     slide_area = max(0.01, slide_w * slide_h)
     density = min(1.0, covered_area / slide_area)
     overload_density = min(1.0, overload_area / slide_area)

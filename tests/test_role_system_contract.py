@@ -166,6 +166,50 @@ class TasteGrammarCatalogTests(unittest.TestCase):
         self.assertEqual(contract["renderer_role_contracts_v2"], role_contracts)
         self.assertFalse(_validate_renderer_role_systems_contract(brief))
 
+    def test_auto_topic_routing_keeps_style_and_grammar_dynamic(self) -> None:
+        context = compact_workflow_atom_context(
+            build_workflow_atom_context(
+                user_prompt="Public policy brief on urban heat, equity and budget tradeoffs",
+                style_preset="",
+                include_prompt=False,
+            )
+        )
+        self.assertEqual(context["target_family"], "forest-research")
+        self.assertEqual(
+            context["composition_grammar_route"]["primary"]["grammar_id"],
+            "policy-public-docket",
+        )
+        self.assertFalse(context["style_execution_plan"]["explicit_style_lock"])
+
+    def test_auto_workspace_selection_does_not_become_an_explicit_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            (workspace / "design_brief.json").write_text(
+                json.dumps(
+                    {
+                        "style_system": {
+                            "style_preset": "arctic-minimal",
+                            "style_selection": {"mode": "auto"},
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            context = compact_workflow_atom_context(
+                build_workflow_atom_context(
+                    user_prompt="GPU telemetry latency and incident-response architecture review",
+                    workspace=workspace,
+                    style_preset="",
+                    include_prompt=False,
+                )
+            )
+        self.assertEqual(context["selection_basis"], "workspace_auto_style_preset")
+        self.assertEqual(
+            context["composition_grammar_route"]["primary"]["grammar_id"],
+            "technical-telemetry-canvas",
+        )
+        self.assertFalse(context["style_execution_plan"]["explicit_style_lock"])
+
     def test_strict_validation_rejects_unknown_or_inconsistent_system_ids(self) -> None:
         brief = _design_brief_stub("Operations review", "lavender-ops", user_prompt="operations review")
         broken = copy.deepcopy(brief)

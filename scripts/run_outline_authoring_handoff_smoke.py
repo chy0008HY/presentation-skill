@@ -812,6 +812,22 @@ def _assert_outline_state(
     output = build_report.get("outputs", {}).get("pptx") if isinstance(build_report.get("outputs"), dict) else {}
     if build_report.get("run", {}).get("status") != "succeeded" or not output.get("exists"):
         failures.append({"step": "build_workspace", "reason": "pptx_build_not_succeeded", "run": build_report.get("run"), "output": output})
+    ir_output = build_report.get("outputs", {}).get("deck_ir") if isinstance(build_report.get("outputs"), dict) else {}
+    deck_ir_path = workspace / str(ir_output.get("path") or "build/deck_ir.json")
+    deck_ir = _load_json(deck_ir_path)
+    if (
+        not ir_output.get("exists")
+        or deck_ir.get("ir_version") != "1.0.0"
+        or len(deck_ir.get("slides") if isinstance(deck_ir.get("slides"), list) else []) != len(slides)
+    ):
+        failures.append(
+            {
+                "step": "build_workspace",
+                "reason": "deck_ir_not_persisted",
+                "deck_ir_output": ir_output,
+                "deck_ir_version": deck_ir.get("ir_version"),
+            }
+        )
 
     if qa_report.get("overflow_count") != 0 or qa_report.get("overlap_count") != 0:
         failures.append({"step": "qa_gate", "reason": "overflow_or_overlap", "qa": qa_report})

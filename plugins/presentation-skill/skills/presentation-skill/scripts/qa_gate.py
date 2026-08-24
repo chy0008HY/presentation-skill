@@ -15,6 +15,8 @@ from typing import Any
 
 from pptx import Presentation
 
+from visual_review_receipt import RECEIPT_VERSION, validate_receipt
+
 WHITESPACE_WARNING_TYPES = {
     "empty_ratio_too_high",
     "content_span_too_short",
@@ -231,6 +233,18 @@ def _args() -> argparse.Namespace:
         help="Do not fail strict mode when manual-review flag is missing",
     )
     parser.add_argument(
+        "--visual-review-receipt",
+        help=(
+            "Optional hash-bound visual_review_receipt_v1 JSON produced after a human or model "
+            "reviews the exact rendered slide images."
+        ),
+    )
+    parser.add_argument(
+        "--require-bound-visual-review",
+        action="store_true",
+        help="Require a valid passing visual-review receipt; an unbound flag file is insufficient.",
+    )
+    parser.add_argument(
         "--report",
         help="Path to write machine-readable QA summary JSON",
     )
@@ -265,6 +279,31 @@ def _args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--accessibility",
+        action="store_true",
+        help=(
+            "Run deterministic title, alternative-text, table-context, reading-order, "
+            "and minimum-type accessibility checks."
+        ),
+    )
+    parser.add_argument(
+        "--strict-accessibility",
+        action="store_true",
+        help="Run accessibility QA and upgrade warning-level findings to errors.",
+    )
+    parser.add_argument(
+        "--accessibility-min-body-pt",
+        type=float,
+        default=12.0,
+        help="Minimum body type size for accessibility QA (default: 12).",
+    )
+    parser.add_argument(
+        "--accessibility-min-metadata-pt",
+        type=float,
+        default=8.0,
+        help="Minimum source/footer type size for accessibility QA (default: 8).",
+    )
+    parser.add_argument(
         "--keep-artifacts",
         action="store_true",
         help="Keep QA artifact directory when --outdir is not provided",
@@ -296,6 +335,7 @@ def main() -> int:
     visual_review_dir = outdir / "visual_review"
     visual_review_report = visual_review_dir / "visual_review.json"
     visual_review_markdown = visual_review_dir / "visual_review.md"
+    accessibility_report = outdir / "accessibility.json"
     report_path = (
         Path(args.report).expanduser().resolve() if args.report else outdir / "qa_report.json"
     )
@@ -379,6 +419,26 @@ def main() -> int:
     if args.design_brief:
         design_cmd.extend(["--design-brief", str(Path(args.design_brief).expanduser().resolve())])
     design_rc, _ = _run_capture(design_cmd)
+    accessibility_rc = 0
+    accessibility_stdout = ""
+    accessibility_payload: dict[str, Any] = {}
+    if args.accessibility or args.strict_accessibility:
+        accessibility_cmd = [
+            py,
+            str(base / "accessibility_qa.py"),
+            "--input",
+            str(input_path),
+            "--report",
+            str(accessibility_report),
+            "--min-body-pt",
+            str(args.accessibility_min_body_pt),
+            "--min-metadata-pt",
+            str(args.accessibility_min_metadata_pt),
+        ]
+        if args.strict_accessibility:
+            accessibility_cmd.append("--strict")
+        accessibility_rc, accessibility_stdout = _run_capture(accessibility_cmd)
+        accessibility_payload = _load_json(accessibility_report)
     visual_review_rc = 0
     visual_review_stdout = ""
     visual_review_payload: dict[str, Any] = {}
@@ -424,10 +484,28 @@ def main() -> int:
     design_errors, design_warnings = _design_summary(design_payload)
     visual_review_warning_count = int(visual_review_payload.get("warning_count", 0) or 0)
     visual_review_info_count = int(visual_review_payload.get("info_count", 0) or 0)
+    accessibility_error_count = int(accessibility_payload.get("error_count", 0) or 0)
+    accessibility_warning_count = int(accessibility_payload.get("warning_count", 0) or 0)
 
     families = sorted(_font_families(input_path))
     too_many_fonts = len(families) > args.max_font_families
-    manual_review_passed = manual_flag.exists()
+    legacy_manual_flag_present = manual_flag.exists()
+    visual_review_receipt_result: dict[str, Any] = {
+        "passed": False,
+        "schema_version": RECEIPT_VERSION,
+        "failures": ["No visual-review receipt supplied."],
+    }
+    if args.visual_review_receipt:
+        visual_review_receipt_result = validate_receipt(
+            receipt_path=Path(args.visual_review_receipt),
+            pptx_path=input_path,
+            renders_dir=render_dir,
+            fail_on_warnings=args.fail_on_visual_review_warnings,
+        )
+    bound_visual_review_passed = bool(visual_review_receipt_result.get("passed"))
+    manual_review_passed = bound_visual_review_passed or (
+        legacy_manual_flag_present and not args.require_bound_visual_review
+    )
 
     density_score_by_slide = layout_payload.get("summary", {}).get("density_score_by_slide", [])
     expected_slide_count = len(Presentation(str(input_path)).slides)
@@ -470,9 +548,21 @@ def main() -> int:
         "design_report": str(design_report),
         "design_rc": design_rc,
         "design_brief": str(Path(args.design_brief).expanduser().resolve()) if args.design_brief else "",
+        "accessibility_enabled": bool(args.accessibility or args.strict_accessibility),
+        "accessibility_strict": bool(args.strict_accessibility),
+        "accessibility_error_count": accessibility_error_count,
+        "accessibility_warning_count": accessibility_warning_count,
+        "accessibility_report": str(accessibility_report)
+        if args.accessibility or args.strict_accessibility
+        else "",
+        "accessibility_rc": accessibility_rc,
+        "accessibility_stdout_tail": accessibility_stdout[-2000:],
         "density_score_by_slide": density_score_by_slide,
         "font_families": families,
         "manual_review_passed": manual_review_passed,
+        "legacy_manual_flag_present": legacy_manual_flag_present,
+        "bound_visual_review_passed": bound_visual_review_passed,
+        "visual_review_receipt": visual_review_receipt_result,
         "strict_geometry": args.strict_geometry,
     }
     if not cleanup_artifacts or args.report:
@@ -495,8 +585,15 @@ def main() -> int:
         if visual_review_payload.get("contact_sheet"):
             print(f"Visual review contact sheet: {visual_review_payload['contact_sheet']}")
     print(f"Design errors/warnings: {len(design_errors)}/{len(design_warnings)}")
+    if args.accessibility or args.strict_accessibility:
+        print(
+            "Accessibility errors/warnings: "
+            f"{accessibility_error_count}/{accessibility_warning_count}"
+        )
     print(f"Font families ({len(families)}): {', '.join(families) if families else 'none'}")
-    print(f"Manual review flag: {'present' if manual_review_passed else 'missing'} ({manual_flag})")
+    print(f"Legacy manual review flag: {'present' if legacy_manual_flag_present else 'missing'} ({manual_flag})")
+    if args.visual_review_receipt or args.require_bound_visual_review:
+        print(f"Bound visual review: {'passed' if bound_visual_review_passed else 'failed'}")
     if not cleanup_artifacts or args.report:
         print(f"QA report: {report_path}")
     else:
@@ -545,8 +642,14 @@ def main() -> int:
     if args.fail_on_visual_review_warnings and visual_review_warning_count:
         print("FAIL: visual review found warning-level polish issues.")
         failed = True
+    if (args.accessibility or args.strict_accessibility) and accessibility_rc != 0:
+        print("FAIL: accessibility QA found blocking findings or could not audit the deck.")
+        failed = True
+    if args.require_bound_visual_review and not bound_visual_review_passed:
+        print("FAIL: a valid hash-bound passing visual-review receipt is required.")
+        failed = True
     if args.strict_geometry and not args.skip_manual_review and not manual_review_passed:
-        print("FAIL: strict geometry mode requires manual review flag.")
+        print("FAIL: strict geometry mode requires a manual or hash-bound visual review.")
         failed = True
 
     if cleanup_artifacts:

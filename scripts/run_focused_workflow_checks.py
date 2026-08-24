@@ -102,6 +102,16 @@ CHECKS: dict[str, dict[str, str]] = {
         "lane": "rendered",
         "description": "Structured lab data workflow with rendered figure/chart/table triplet delivery readiness.",
     },
+    "quick-finalizer": {
+        "script": "run_quick_deck_finalizer_smoke.py",
+        "lane": "rendered",
+        "description": "One-command quick-deck build, render, visual review, metadata sanitation, and strict QA on awkward content.",
+    },
+    "present-cli": {
+        "script": "run_present_cli_smoke.py",
+        "lane": "workflow",
+        "description": "Lean Luna/Terra/Sol brief routing, compact workspace initialization, and clean draft build.",
+    },
     "layout-polish": {
         "script": "run_layout_polish_handoff_smoke.py",
         "lane": "layout",
@@ -160,12 +170,13 @@ CHECKS: dict[str, dict[str, str]] = {
 }
 
 PROFILES: dict[str, list[str]] = {
-    "routing": ["deck-start", "design-contract", "outline-handoff", "style-router", "workflow"],
+    "routing": ["present-cli", "deck-start", "design-contract", "outline-handoff", "style-router", "workflow"],
     "style": ["style-mix", "composition-grammar", "renderer-taste", "controlled-style-diversity", "style-reference-sources", "style-reference", "style-reference-starters", "style-reference-resolution", "style-reference-gallery", "style-router", "header-gallery", "layout-polish", "readability-contract", "source-footers", "lab-footer-chrome"],
     "data": ["artifact-quality", "figure-whitespace", "data-workflow", "excel-workflow", "artifact-triplet", "artifact-freshness"],
-    "rendered": ["rendered-gallery", "style-reference-release", "rendered-data"],
+    "rendered": ["rendered-gallery", "style-reference-release", "rendered-data", "quick-finalizer"],
     "core": [
         "deck-start",
+        "present-cli",
         "design-contract",
         "outline-handoff",
         "style-mix",
@@ -183,6 +194,7 @@ PROFILES: dict[str, list[str]] = {
         "readability-contract",
         "source-footers",
         "lab-footer-chrome",
+        "quick-finalizer",
         "artifact-quality",
         "figure-whitespace",
         "data-workflow",

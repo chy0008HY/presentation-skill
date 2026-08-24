@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -2760,6 +2761,17 @@ def _check_variant_overuse(slides: list[dict[str, Any]]) -> list[dict[str, Any]]
     normalized = [v or "standard" for v in variants]
     distinct = set(normalized)
     ratio = len(distinct) / len(content)
+    declared_roles = {
+        str(slide.get("role") or "").strip().lower()
+        for slide in content
+        if str(slide.get("role") or "").strip()
+    }
+    # A chart, editable table, decision surface, timeline/evidence structure,
+    # and references register are different content objects, not arbitrary
+    # template sampling. The normal v2 handoff declares those renderer roles
+    # explicitly; preserve that evidence-driven diversity.
+    if len(declared_roles) >= 4:
+        return []
     # "Menu-fitting" threshold: at least 5 distinct variants AND the
     # ratio is ≥ 0.75 (almost every slide is a different variant).
     if len(distinct) < 5 or ratio < 0.75:
@@ -2786,6 +2798,57 @@ def _check_variant_overuse(slides: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "Don't treat the rhythm-break rule as 'must use every "
                 "variant once' — one strong rhythm-breaker plus "
                 "consistent supporting variants reads as intentional."
+            ),
+        )
+    ]
+
+
+def _check_variant_convergence(slides: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Flag renderer-safe repairs that collapse most content into one shell.
+
+    This is deliberately informational. A repeated table can be the right
+    choice for a ledger-heavy appendix, but in a short narrative deck it often
+    means the model solved overflow by discarding the chart, comparison,
+    timeline, and decision structures selected by the grammar.
+    """
+    content = [
+        slide
+        for slide in slides
+        if isinstance(slide, dict)
+        and str(slide.get("type") or "content").strip().lower() == "content"
+    ]
+    if len(content) < 5:
+        return []
+    variants = [str(slide.get("variant") or "standard").strip().lower() for slide in content]
+    counts: dict[str, int] = {}
+    for variant in variants:
+        counts[variant] = counts.get(variant, 0) + 1
+    dominant, dominant_count = max(counts.items(), key=lambda item: item[1])
+    longest_run = 0
+    current_run = 0
+    previous = None
+    for variant in variants:
+        current_run = current_run + 1 if variant == previous else 1
+        longest_run = max(longest_run, current_run)
+        previous = variant
+    threshold = max(3, math.ceil(len(content) * 0.60))
+    if dominant_count < threshold and longest_run < 3:
+        return []
+    return [
+        _make_issue(
+            None,
+            "variant_convergence_risk",
+            "info",
+            (
+                f"Deck has {len(content)} content slides; variant {dominant!r} appears "
+                f"{dominant_count} times and the longest repeated run is {longest_run}. "
+                "This can make a routed grammar collapse into one renderer shell."
+            ),
+            (
+                "Keep tables for genuine ledgers and source registers. Use chart for ranked or "
+                "trend evidence, comparison-2col for option tradeoffs, matrix or standard for a "
+                "decision, and timeline for owned phases when those structures fit the argument. "
+                "Change the content structure, not merely the color or header treatment."
             ),
         )
     ]
@@ -3482,6 +3545,7 @@ def lint_outline(
     # Removed: _check_enrichment_pattern (overlapped with the rule below).
     issues.extend(_check_icon_absence_systemic(slides, issues))
     issues.extend(_check_variant_overuse(slides))
+    issues.extend(_check_variant_convergence(slides))
     issues.extend(_check_evidence_motif_continuity(slides, deck_style))
 
     return issues

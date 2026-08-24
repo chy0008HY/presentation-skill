@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -49,7 +50,7 @@ def main() -> int:
         for idx, (requested, expected, prompt) in enumerate(cases, start=1):
             workspace = root / f"case-{idx}"
             _run(
-                "python3",
+                sys.executable,
                 "scripts/init_deck_workspace.py",
                 "--workspace",
                 str(workspace),
@@ -97,7 +98,7 @@ def main() -> int:
                 raise AssertionError("agent brief markdown omitted the composition grammar")
             before = _sha(brief_path)
             _run(
-                "python3",
+                sys.executable,
                 "scripts/model_adaptive_workflow.py",
                 "--workspace",
                 str(workspace),

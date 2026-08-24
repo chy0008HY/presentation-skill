@@ -73,7 +73,7 @@ Do not use it for pure text brainstorming when no deck artifact is needed.
 - Codex-native vs updated comparison:
   `decks/native-vs-latest-random-topics-20260623/readme_images/codex_native_vs_updated_clean_three_topics.png`
 - Latest release evidence:
-  <https://github.com/siril9/presentation-skill/releases/tag/v0.9.0>
+  <https://github.com/siril9/presentation-skill/releases/tag/v0.10.0>
 
 ## Example Prompts
 

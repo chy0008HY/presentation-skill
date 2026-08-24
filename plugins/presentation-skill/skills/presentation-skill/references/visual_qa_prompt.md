@@ -94,6 +94,13 @@ Report ALL issues found, including minor ones.
    position).
 6. Repeat until a full pass reveals no new issues.
 
+For high-stakes delivery, save the independent verdict as strict
+`visual_judgment_v1` JSON, create a receipt with
+`scripts/visual_review_receipt.py create`, and make the final QA invocation use
+`--visual-review-receipt <path> --require-bound-visual-review`. The receipt is
+bound to the exact PPTX package hash and every rendered slide hash, so a later
+rebuild cannot reuse a stale approval.
+
 **Do not declare success until at least one fix-and-verify cycle has
 completed.** A clean `qa_gate.py` plus "looks OK at a glance" is not
 enough.

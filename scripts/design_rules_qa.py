@@ -121,6 +121,9 @@ def _text_role(shape, text, slide_h):
     top = box[1]
     height = box[3]
     lower = text.lower()
+    shape_name = str(getattr(shape, "name", "") or "").strip().lower()
+    if shape_name.startswith("metadata:"):
+        return "caption"
     if top >= slide_h - 0.75:
         return "caption"
     if height <= 0.36:
@@ -273,6 +276,20 @@ def check_table_readability(slide_idx, slide, contract):
         table = shape.table
         row_count = len(table.rows)
         col_count = len(table.columns)
+        row_height_total = sum(row.height.inches for row in table.rows)
+        frame_height = shape.height.inches
+        if row_height_total > frame_height + 0.02:
+            issues.append(
+                {
+                    "slide_index": slide_idx,
+                    "shape_id": f"shape-{shape_id}",
+                    "type": "table_rows_exceed_frame",
+                    "severity": "error",
+                    "frame_height_inches": round(frame_height, 3),
+                    "row_height_total_inches": round(row_height_total, 3),
+                    "overflow_inches": round(row_height_total - frame_height, 3),
+                }
+            )
         if row_count > 10 or col_count > 6:
             issues.append(
                 {
@@ -302,6 +319,33 @@ def check_table_readability(slide_idx, slide, contract):
                     "severity": "warning",
                     "font_pt": round(min_font, 1),
                     "min_allowed_pt": round(min_table_font, 1),
+                }
+            )
+    return issues
+
+
+def check_table_caption_overlap(slide_idx, slide, text_shapes):
+    issues = []
+    tables = [
+        (shape_id, shape)
+        for shape_id, shape in enumerate(slide.shapes, start=1)
+        if getattr(shape, "has_table", False)
+    ]
+    for caption_id, caption, _text in text_shapes:
+        name = str(getattr(caption, "name", "") or "").strip().lower()
+        if not name.startswith("metadata:table-caption"):
+            continue
+        for table_id, table_shape in tables:
+            overlap_x, overlap_y = _overlap(_box(caption), _box(table_shape))
+            if overlap_x <= 0.02 or overlap_y <= 0.02:
+                continue
+            issues.append(
+                {
+                    "slide_index": slide_idx,
+                    "shape_ids": [f"shape-{table_id}", f"shape-{caption_id}"],
+                    "type": "table_caption_overlap",
+                    "severity": "error",
+                    "overlap_inches": round(min(overlap_x, overlap_y), 3),
                 }
             )
     return issues
@@ -564,6 +608,7 @@ def main() -> int:
         if enforce_text_readability:
             slide_issues.extend(check_text_readability(slide_idx, text_shapes, slide_h, readability_contract))
         slide_issues.extend(check_table_readability(slide_idx, slide, readability_contract))
+        slide_issues.extend(check_table_caption_overlap(slide_idx, slide, text_shapes))
         slide_issues.extend(check_stacked_text_gaps(slide_idx, auto_shapes, text_shapes))
         slide_issues.extend(check_marker_centering(slide_idx, auto_shapes, text_shapes))
         issues.extend(slide_issues)

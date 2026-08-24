@@ -17,9 +17,10 @@ from pptx import Presentation
 from design_tokens import PRESETS
 from emit_deck_start_packet import build_packet
 from model_adaptive_workflow import PROFILE_ALIASES, write_agent_brief
+from reference_deck import inspect_reference_deck
 from style_reference_catalog import LAYOUT_PLAYBOOK_VERSION, preset_style_reference
 from style_treatment_profiles import preset_treatment_profile
-from workflow_atom_context import build_workflow_atom_context, compact_workflow_atom_context
+from workflow_atom_context import DEFAULT_FAMILY, build_workflow_atom_context, compact_workflow_atom_context
 
 
 STYLE_REFERENCE_ASSETS = {
@@ -164,6 +165,50 @@ def _story_list(value: Any) -> list[Any]:
 
 def _story_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _workspace_atom_summary(context: dict[str, Any]) -> dict[str, Any]:
+    """Persist routing decisions without duplicating full renderer contracts."""
+
+    route = context.get("composition_grammar_route") if isinstance(context.get("composition_grammar_route"), dict) else {}
+    primary = route.get("primary") if isinstance(route.get("primary"), dict) else {}
+    alternatives = route.get("alternatives") if isinstance(route.get("alternatives"), list) else []
+    return {
+        "schema_version": context.get("schema_version"),
+        "route_id": context.get("route_id"),
+        "status": context.get("status"),
+        "decision": context.get("decision"),
+        "target_family": context.get("target_family"),
+        "selection_basis": context.get("selection_basis"),
+        "slide_count": context.get("slide_count"),
+        "topic_terms": context.get("topic_terms") or [],
+        "preferred_variants": context.get("preferred_variants") or [],
+        "narrative_arc": context.get("narrative_arc") or [],
+        "deck_style_delta": context.get("deck_style_delta") or {},
+        "style_atom_composition": context.get("style_atom_composition") or {},
+        "composition_grammar": {
+            key: primary.get(key)
+            for key in (
+                "grammar_id",
+                "style_preset",
+                "lane",
+                "rhythm_pattern",
+                "role_variant_map",
+                "selection_reasons",
+                "structural_signature",
+            )
+            if primary.get(key) not in (None, "", [], {})
+        },
+        "alternative_grammars": [
+            {
+                key: item.get(key)
+                for key in ("grammar_id", "style_preset", "lane", "selection_reasons")
+                if item.get(key) not in (None, "", [], {})
+            }
+            for item in alternatives[:2]
+            if isinstance(item, dict)
+        ],
+    }
 
 
 def _compact_text(value: Any, fallback: str, *, limit: int = 64) -> str:
@@ -575,21 +620,35 @@ def _starter_outline(
     palette_key: str | None,
     *,
     user_prompt: str = "",
+    atom_style_preset: str | None = None,
 ) -> dict[str, Any]:
     reference = preset_style_reference(style_preset)
     playbook = _story_dict(reference.get("layout_playbook"))
     atom_context = compact_workflow_atom_context(
         build_workflow_atom_context(
             user_prompt=user_prompt or title,
-            style_preset=style_preset,
+            style_preset=style_preset if atom_style_preset is None else atom_style_preset,
             slide_count=8,
             include_prompt=False,
         )
     )
     deck_style: dict[str, Any] = {
+        "style_preset": style_preset,
         "visual_density": "medium",
         "emoji_mode": "none",
     }
+    composition_route = (
+        atom_context.get("composition_grammar_route")
+        if isinstance(atom_context.get("composition_grammar_route"), dict)
+        else {}
+    )
+    primary_grammar = (
+        composition_route.get("primary")
+        if isinstance(composition_route.get("primary"), dict)
+        else {}
+    )
+    if primary_grammar.get("grammar_id"):
+        deck_style["composition_grammar"] = primary_grammar["grammar_id"]
     for key, value in (atom_context.get("deck_style_delta") or {}).items():
         if key in {
             "page_system",
@@ -626,7 +685,7 @@ def _starter_outline(
                 "playbook_version": playbook.get("playbook_version"),
                 "style_metric_profile": reference.get("style_metric_profile"),
             },
-            "style_atom_context": atom_context,
+            "style_atom_context": _workspace_atom_summary(atom_context),
             "renderer_role_systems_v1": atom_context.get("renderer_role_systems_v1") or {},
             "renderer_role_contracts_v2": atom_context.get("renderer_role_contracts_v2") or {},
         },
@@ -1085,7 +1144,14 @@ def _content_plan_stub(title: str, slide_refs: list[dict[str, str]] | None = Non
     }
 
 
-def _design_brief_stub(title: str, style_preset: str, *, user_prompt: str = "") -> dict[str, Any]:
+def _design_brief_stub(
+    title: str,
+    style_preset: str,
+    *,
+    user_prompt: str = "",
+    atom_style_preset: str | None = None,
+    style_selection: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     preset = PRESETS[style_preset]
     treatment_profile = preset_treatment_profile(style_preset)
     style_reference = preset_style_reference(style_preset)
@@ -1093,7 +1159,7 @@ def _design_brief_stub(title: str, style_preset: str, *, user_prompt: str = "") 
     atom_context = compact_workflow_atom_context(
         build_workflow_atom_context(
             user_prompt=user_prompt or title,
-            style_preset=style_preset,
+            style_preset=style_preset if atom_style_preset is None else atom_style_preset,
             slide_count=8,
             include_prompt=False,
         )
@@ -1168,10 +1234,11 @@ def _design_brief_stub(title: str, style_preset: str, *, user_prompt: str = "") 
         },
         "style_system": {
             "style_preset": style_preset,
+            "style_selection": dict(style_selection or {}),
             "style_seed": f"{_slugify(title)}-{style_preset}",
             "preset_treatment_profile": treatment_profile,
             "style_reference": style_reference,
-            "style_atom_context": atom_context,
+            "style_atom_context": _workspace_atom_summary(atom_context),
             "style_atom_composition": style_atom_composition,
             "style_atom_preferred_variants": atom_context.get("preferred_variants") or [],
             "style_atom_narrative_arc": atom_context.get("narrative_arc") or [],
@@ -1355,6 +1422,8 @@ def _style_contract(
     palette_key: str | None,
     reference_pptx: Path | None,
     user_prompt: str = "",
+    atom_style_preset: str | None = None,
+    style_selection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     preset = PRESETS[style_preset]
     style_reference = preset_style_reference(style_preset)
@@ -1362,7 +1431,7 @@ def _style_contract(
     atom_context = compact_workflow_atom_context(
         build_workflow_atom_context(
             user_prompt=user_prompt or title,
-            style_preset=style_preset,
+            style_preset=style_preset if atom_style_preset is None else atom_style_preset,
             slide_count=8,
             include_prompt=False,
         )
@@ -1398,7 +1467,8 @@ def _style_contract(
             "preferred_variants": playbook.get("preferred_variants"),
             "starter_outline_version": "style_reference_starter_outline_v1",
         },
-        "style_atom_context": atom_context,
+        "style_atom_context": _workspace_atom_summary(atom_context),
+        "style_selection": dict(style_selection or {}),
         "renderer_role_systems_v1": atom_context.get("renderer_role_systems_v1") or {},
         "renderer_role_contracts_v2": atom_context.get("renderer_role_contracts_v2") or {},
     }
@@ -1411,7 +1481,12 @@ def _args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Initialize a persistent PPTX deck workspace.")
     parser.add_argument("--workspace", required=True, help="Workspace directory to create")
     parser.add_argument("--title", required=True, help="Human-readable deck title")
-    parser.add_argument("--style-preset", default="executive-clinical", choices=sorted(PRESETS))
+    parser.add_argument(
+        "--style-preset",
+        default="auto",
+        choices=["auto", *sorted(PRESETS)],
+        help="Preset to lock, or auto to infer a reproducible topic-fit preset (default).",
+    )
     parser.add_argument("--font-pair", help="Optional font pair override stored in outline/style contract")
     parser.add_argument("--palette-key", help="Optional palette override stored in outline/style contract")
     parser.add_argument("--source-outline", help="Optional JSON outline to copy into workspace")
@@ -1431,6 +1506,14 @@ def _args() -> argparse.Namespace:
         help=(
             "Write deck_start_packet.json during initialization. If "
             "--user-prompt is omitted, the deck title is used as the prompt."
+        ),
+    )
+    parser.add_argument(
+        "--skip-start-packet",
+        action="store_true",
+        help=(
+            "Keep initialization lightweight even when --user-prompt is provided. "
+            "The full packet can be emitted later for audit or multi-agent recovery."
         ),
     )
     parser.add_argument(
@@ -1490,7 +1573,38 @@ def main() -> int:
     source_outline = Path(args.source_outline).expanduser().resolve() if args.source_outline else None
     reference_pptx = Path(args.reference_pptx).expanduser().resolve() if args.reference_pptx else None
     user_prompt = str(args.user_prompt or "").strip()
-    emit_start_packet = bool(args.emit_start_packet or user_prompt)
+    requested_style_preset = str(args.style_preset or "auto").strip()
+    style_was_auto = requested_style_preset == "auto"
+    if style_was_auto:
+        route_context = build_workflow_atom_context(
+            user_prompt=user_prompt or args.title,
+            style_preset="",
+            slide_count=8,
+            include_prompt=False,
+        )
+        resolved_style_preset = str(route_context.get("target_family") or DEFAULT_FAMILY).strip()
+        if resolved_style_preset not in PRESETS:
+            resolved_style_preset = DEFAULT_FAMILY
+        args.style_preset = resolved_style_preset
+        style_selection = {
+            "mode": "auto",
+            "requested_style_preset": "auto",
+            "resolved_style_preset": resolved_style_preset,
+            "selection_basis": route_context.get("selection_basis") or "topic_router",
+            "topic_terms": route_context.get("topic_terms") or [],
+        }
+    else:
+        style_selection = {
+            "mode": "explicit",
+            "requested_style_preset": requested_style_preset,
+            "resolved_style_preset": requested_style_preset,
+            "selection_basis": "requested_style_preset",
+            "topic_terms": [],
+        }
+    # Auto-routing is decided once above, then persisted as a reproducible
+    # contract across every generated workspace artifact.
+    atom_style_preset = str(args.style_preset)
+    emit_start_packet = bool(args.emit_start_packet or (user_prompt and not args.skip_start_packet))
     start_packet_path = _resolve_workspace_output(workspace, args.start_packet)
 
     if source_outline and not source_outline.exists():
@@ -1565,6 +1679,7 @@ def main() -> int:
             args.font_pair,
             args.palette_key,
             user_prompt=user_prompt,
+            atom_style_preset=atom_style_preset,
         )
 
     slide_refs = _ensure_outline_slide_ids(outline)
@@ -1584,9 +1699,12 @@ def main() -> int:
         palette_key=args.palette_key,
         reference_pptx=reference_pptx,
         user_prompt=user_prompt,
+        atom_style_preset=atom_style_preset,
+        style_selection=style_selection,
     )
     outline_metadata = outline.setdefault("metadata", {})
     if isinstance(outline_metadata, dict):
+        outline_metadata["style_selection"] = style_selection
         outline_metadata.setdefault(
             "renderer_role_contracts_v2",
             style_contract.get("renderer_role_contracts_v2") or {},
@@ -1605,8 +1723,11 @@ def main() -> int:
         "assets_dir": "assets",
         "staged_assets_dir": "assets/staged",
         "build_dir": "build",
+        "deck_ir": "build/deck_ir.json",
         "reference_pptx": str(reference_pptx) if reference_pptx else None,
     }
+    if reference_pptx:
+        workspace_manifest["reference_deck_manifest"] = "reference_deck_manifest.json"
     if emit_start_packet:
         workspace_manifest["deck_start_packet"] = _display_path(workspace, start_packet_path)
         workspace_manifest["agent_brief"] = "agent_brief.json"
@@ -1617,6 +1738,16 @@ def main() -> int:
         workspace / "style_contract.json",
         json.dumps(style_contract, indent=2, ensure_ascii=False) + "\n",
     )
+    if reference_pptx:
+        _write_text(
+            workspace / "reference_deck_manifest.json",
+            json.dumps(
+                inspect_reference_deck(reference_pptx),
+                indent=2,
+                ensure_ascii=False,
+            )
+            + "\n",
+        )
     _write_text(
         workspace / "content_plan.json",
         json.dumps(_content_plan_stub(args.title, slide_refs), indent=2, ensure_ascii=False) + "\n",
@@ -1624,7 +1755,13 @@ def main() -> int:
     _write_text(
         workspace / "design_brief.json",
         json.dumps(
-            _design_brief_stub(args.title, args.style_preset, user_prompt=user_prompt),
+            _design_brief_stub(
+                args.title,
+                args.style_preset,
+                user_prompt=user_prompt,
+                atom_style_preset=atom_style_preset,
+                style_selection=style_selection,
+            ),
             indent=2,
             ensure_ascii=False,
         )

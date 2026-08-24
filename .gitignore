@@ -13,6 +13,7 @@ decks/**/build/**
 
 # Local runtime / telemetry
 node_modules/
+.venv/
 .skill_telemetry/
 
 # Local scratch helper bundles. Keep the public repo on repo-owned code plus

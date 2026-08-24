@@ -13,6 +13,7 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 from composition_grammar_catalog import (  # noqa: E402
+    quick_deck_agent_brief,
     route_composition_grammars,
     validate_composition_grammar_catalog,
 )
@@ -80,6 +81,89 @@ def main() -> int:
         if len(alternatives) != 2:
             failures.append(f"{label}: expected two bounded alternatives")
 
+    brief = quick_deck_agent_brief(cases[0][1], slide_count=7, agent_profile="terra")
+    if brief.get("schema_version") != "quick_deck_agent_brief/v3":
+        failures.append("quick-deck brief schema is not v3")
+    outline_contract = brief.get("outline_contract") if isinstance(brief.get("outline_contract"), dict) else {}
+    deck_style = outline_contract.get("deck_style") if isinstance(outline_contract.get("deck_style"), dict) else {}
+    readability = deck_style.get("readability_contract") if isinstance(deck_style.get("readability_contract"), dict) else {}
+    if readability.get("min_body_pt") != 16 or readability.get("min_metadata_pt") != 9:
+        failures.append("quick-deck brief omitted the 16/9 readability contract")
+    route_candidates = brief.get("route_candidates") if isinstance(brief.get("route_candidates"), list) else []
+    if brief.get("route_mode") != "model-select-from-bounded-candidates" or len(route_candidates) != 2:
+        failures.append("Terra brief must expose exactly two bounded grammar candidates")
+    fast_brief = quick_deck_agent_brief(cases[0][1], slide_count=7, agent_profile="luna")
+    quality_brief = quick_deck_agent_brief(cases[0][1], slide_count=7, agent_profile="sol")
+    if fast_brief.get("route_mode") != "deterministic" or len(fast_brief.get("route_candidates") or []) != 1:
+        failures.append("Luna brief must use one deterministic grammar candidate")
+    if len(quality_brief.get("route_candidates") or []) != 3:
+        failures.append("Sol brief must expose three bounded grammar candidates")
+    if len(json.dumps(brief, ensure_ascii=False)) > 9000:
+        failures.append("quick-deck brief exceeded the lightweight 9 KB budget")
+    commands = brief.get("commands") if isinstance(brief.get("commands"), dict) else {}
+    finalize_command = str(commands.get("finalize") or "")
+    if str(ROOT) not in finalize_command or "present.py" not in finalize_command:
+        failures.append("quick-deck finalizer command is not self-locating")
+    forbidden_command_tokens = ("libreoffice", "keynote", "powerpoint", "set_properties")
+    if any(token in finalize_command.lower() for token in forbidden_command_tokens):
+        failures.append("quick-deck brief exposes an unsupported application or metadata command")
+    if set(commands) != {"finalize", "repair_loop"}:
+        failures.append("quick-deck brief must expose only the bounded finalize and repair loop")
+
+    auto_cases = [
+        (
+            "auto-investor",
+            "Seed-stage investor pitch with market sizing and unit economics",
+            "sunset-investor",
+            "investor-thesis-stage",
+        ),
+        (
+            "auto-lab",
+            "Laboratory assay validation with methods, controls, LoD and concordance",
+            "lab-report",
+            "scientific-evidence-plate",
+        ),
+        (
+            "auto-policy",
+            "Public policy brief on urban heat, equity and budget tradeoffs",
+            "forest-research",
+            "policy-public-docket",
+        ),
+        (
+            "auto-ops",
+            "Operations dashboard for backlog, owners, thresholds and weekly actions",
+            "data-heavy-boardroom",
+            "operations-grid",
+        ),
+        (
+            "auto-technical",
+            "Technical architecture review for GPU telemetry, latency and incident response",
+            "arctic-minimal",
+            "technical-telemetry-canvas",
+        ),
+    ]
+    auto_routes: dict[str, dict[str, str]] = {}
+    for label, prompt, expected_family, expected_grammar in auto_cases:
+        auto_context = compact_workflow_atom_context(
+            build_workflow_atom_context(
+                user_prompt=prompt,
+                style_preset="",
+                include_prompt=False,
+            )
+        )
+        auto_route = auto_context.get("composition_grammar_route") or {}
+        auto_primary = auto_route.get("primary") if isinstance(auto_route.get("primary"), dict) else {}
+        actual_family = str(auto_context.get("target_family") or "")
+        actual_grammar = str(auto_primary.get("grammar_id") or "")
+        auto_routes[label] = {"family": actual_family, "grammar": actual_grammar}
+        if actual_family != expected_family:
+            failures.append(f"{label}: family={actual_family} expected={expected_family}")
+        if actual_grammar != expected_grammar:
+            failures.append(f"{label}: grammar={actual_grammar} expected={expected_grammar}")
+        plan = auto_context.get("style_execution_plan") if isinstance(auto_context.get("style_execution_plan"), dict) else {}
+        if plan.get("explicit_style_lock") is not False:
+            failures.append(f"{label}: auto route was persisted as an explicit style lock")
+
     adversarial_lock = route_composition_grammars(
         topic="Investor launch market transformation",
         user_prompt=(
@@ -139,6 +223,7 @@ def main() -> int:
         "passed": not failures,
         "catalog": summary,
         "routes": {label: _primary_id(route) for label, route, _expected in cases},
+        "auto_routes": auto_routes,
         "explicit_lock": {
             "target_family": context.get("target_family"),
             "grammar_id": primary.get("grammar_id"),

@@ -53,7 +53,7 @@ def _text_blob(value: Any) -> str:
 
 def _style_preset_from_workspace(workspace: Path | None, fallback: str = "") -> str:
     if workspace is None:
-        return fallback or DEFAULT_FAMILY
+        return fallback
     design_brief = _load_json(workspace / "design_brief.json")
     if isinstance(design_brief, dict):
         for container_key in ("style_system", "visual_system"):
@@ -65,7 +65,29 @@ def _style_preset_from_workspace(workspace: Path | None, fallback: str = "") -> 
         value = str(design_brief.get("style_preset") or "").strip()
         if value:
             return value
-    return fallback or DEFAULT_FAMILY
+    return fallback
+
+
+def _workspace_style_selection_mode(workspace: Path | None) -> str:
+    if workspace is None:
+        return ""
+    for name in ("design_brief.json", "style_contract.json", "outline.json"):
+        payload = _load_json(workspace / name)
+        if not isinstance(payload, dict):
+            continue
+        candidates = [payload.get("style_selection")]
+        style_system = payload.get("style_system")
+        if isinstance(style_system, dict):
+            candidates.append(style_system.get("style_selection"))
+        metadata = payload.get("metadata")
+        if isinstance(metadata, dict):
+            candidates.append(metadata.get("style_selection"))
+        for candidate in candidates:
+            if isinstance(candidate, dict):
+                mode = str(candidate.get("mode") or "").strip().lower()
+                if mode:
+                    return mode
+    return ""
 
 
 def _workspace_text(workspace: Path | None, limit: int = 5000) -> str:
@@ -91,7 +113,8 @@ def _infer_family(user_prompt: str, *, workspace: Path | None, style_preset: str
         return requested, "requested_style_preset"
     workspace_preset = _style_preset_from_workspace(workspace, fallback="")
     if workspace_preset:
-        return workspace_preset, "workspace_style_preset"
+        mode = _workspace_style_selection_mode(workspace)
+        return workspace_preset, "workspace_auto_style_preset" if mode == "auto" else "workspace_style_preset"
     prompt = str(user_prompt or "").strip()
     if prompt:
         mix = style_reference_mix_plan(prompt, limit=3)
@@ -145,11 +168,12 @@ def build_workflow_atom_context(
         user_prompt=prompt_context,
     )
     applied = apply_composition(composition)
+    grammar_preset_lock = family if basis in {"requested_style_preset", "workspace_style_preset"} else ""
     grammar_route = compact_grammar_route(
         route_composition_grammars(
             topic=topic,
             user_prompt=prompt_context,
-            style_preset=family,
+            style_preset=grammar_preset_lock,
             limit=3,
         )
     )
@@ -189,8 +213,8 @@ def build_workflow_atom_context(
         "status": "accepted",
         "mode": "deterministic",
         "reason": (
-            "Explicit/workspace preset remains primary; topic-aware atoms and composition grammar "
-            "supply bounded treatment and rhythm choices."
+            "Explicit style choices remain locked. Auto-selected presets stay reproducible while the "
+            "topic-aware composition grammar supplies bounded treatment and rhythm choices."
         ),
     }
     style_execution_plan = {
@@ -283,12 +307,75 @@ def build_workflow_atom_context(
     }
 
 
+def _embedded_grammar_record(record: Any, *, primary: bool) -> dict[str, Any]:
+    if not isinstance(record, dict):
+        return {}
+    keys = ["grammar_id", "style_preset", "lane", "selection_reasons"]
+    if primary:
+        keys.extend(
+            [
+                "description",
+                "rhythm_pattern",
+                "role_variant_map",
+                "preferred_variants",
+                "renderer_bias",
+                "narrative_arc",
+                "density",
+                "grid",
+                "reading_path",
+                "invariant_moves",
+                "forbidden_moves",
+                "max_consecutive_same_variant",
+                "structural_signature",
+            ]
+        )
+    return {key: record.get(key) for key in keys if record.get(key) not in (None, "", [], {})}
+
+
+def _embedded_grammar_route(route: Any) -> dict[str, Any]:
+    if not isinstance(route, dict):
+        return {}
+    return {
+        "route_version": route.get("route_version"),
+        "catalog_version": route.get("catalog_version"),
+        "requested_variants": route.get("requested_variants") or [],
+        "primary": _embedded_grammar_record(route.get("primary"), primary=True),
+        "alternatives": [
+            _embedded_grammar_record(record, primary=False)
+            for record in (route.get("alternatives") or [])[:2]
+            if isinstance(record, dict)
+        ],
+        "selection_rule": route.get("selection_rule"),
+    }
+
+
+def _embedded_execution_plan(plan: Any, compact_route: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(plan, dict):
+        return {}
+    return {
+        "schema_version": plan.get("schema_version"),
+        "requested_preset": plan.get("requested_preset"),
+        "resolved_primary_preset": plan.get("resolved_primary_preset"),
+        "explicit_style_lock": plan.get("explicit_style_lock"),
+        "selection_basis": plan.get("selection_basis"),
+        "decision": plan.get("decision"),
+        "deck_style": plan.get("deck_style"),
+        "composition_grammar": compact_route.get("primary") or {},
+        "renderer_role_systems_v1": plan.get("renderer_role_systems_v1") or {},
+        "renderer_role_contracts_v2": plan.get("renderer_role_contracts_v2") or {},
+        "treatment_plan": plan.get("treatment_plan") or {},
+        "secondary_influences": compact_route.get("alternatives") or [],
+    }
+
+
 def compact_workflow_atom_context(context: dict[str, Any], *, include_prompt: bool = False) -> dict[str, Any]:
     """Shrink a workflow atom context for embedding inside larger prompts."""
 
     topic_terms = context.get("topic_terms")
     if isinstance(topic_terms, list):
         topic_terms = topic_terms[:50]
+    compact_route = _embedded_grammar_route(context.get("composition_grammar_route"))
+    compact_plan = _embedded_execution_plan(context.get("style_execution_plan"), compact_route)
     compact = {
         "schema_version": context.get("schema_version"),
         "route_id": context.get("route_id"),
@@ -304,11 +391,11 @@ def compact_workflow_atom_context(context: dict[str, Any], *, include_prompt: bo
         "deck_style_delta": context.get("deck_style_delta"),
         "design_brief_delta": context.get("design_brief_delta"),
         "style_atom_composition": context.get("style_atom_composition"),
-        "composition_grammar_route": context.get("composition_grammar_route"),
+        "composition_grammar_route": compact_route,
         "renderer_role_systems_v1": context.get("renderer_role_systems_v1"),
         "renderer_role_contracts_v2": context.get("renderer_role_contracts_v2"),
         "taste_narrative_arc": context.get("taste_narrative_arc"),
-        "style_execution_plan": context.get("style_execution_plan"),
+        "style_execution_plan": compact_plan,
         "normal_workflow_contract": context.get("normal_workflow_contract"),
         "prompt_packet_summary": context.get("prompt_packet_summary"),
     }

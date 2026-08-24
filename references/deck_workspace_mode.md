@@ -461,6 +461,36 @@ python3 scripts/build_workspace.py --workspace decks/my-deck --qa --visual-revie
 This writes the normal QA report plus `build/qa/visual_review/`, including a
 contact sheet, `visual_review.json`, and `visual_review.md`.
 
+For an accessible final deck, add `--strict-accessibility`. This checks slide
+titles, meaningful alternative text for visuals, table context, likely reading
+order risks, and configurable body/footer type floors. Existing workspaces do
+not enable this automatically, so archived builds remain reproducible.
+
+Every normal build also writes `build/deck_ir.json`, a deterministic,
+coordinate-free semantic IR linked back to the exact resolved outline. Use it
+for model reasoning, stable object identity, evidence tracing, and future
+renderer migrations; keep coordinates in the renderer contracts.
+
+For a high-stakes final deck, turn the independent reviewer verdict into a
+hash-bound receipt and require it on the exact candidate:
+
+```bash
+python3 scripts/visual_review_receipt.py create \
+  --input decks/my-deck/build/deck.pptx \
+  --renders-dir decks/my-deck/build/qa/renders \
+  --review decks/my-deck/build/visual_judgment.json \
+  --output decks/my-deck/build/visual_review_receipt.json
+
+python3 scripts/build_workspace.py \
+  --workspace decks/my-deck \
+  --qa \
+  --visual-review-receipt build/visual_review_receipt.json \
+  --require-bound-visual-review \
+  --overwrite
+```
+
+The receipt becomes stale when either the PPTX or any rendered slide changes.
+
 Allow Wikimedia Commons fetches while staging assets:
 
 ```bash

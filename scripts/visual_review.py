@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from pptx import Presentation
+from pptx.enum.text import MSO_AUTO_SIZE
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -87,6 +88,10 @@ def _shape_record(slide_num: int, shape_idx: int, shape: Any) -> dict[str, Any] 
     if w <= 0 or h <= 0:
         return None
     font_pt = _font_size_pt(shape)
+    auto_fit = bool(
+        getattr(shape, "has_text_frame", False)
+        and shape.text_frame.auto_size == MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    )
     return {
         "slide": slide_num,
         "shape_id": f"shape-{shape_idx}",
@@ -97,6 +102,7 @@ def _shape_record(slide_num: int, shape_idx: int, shape: Any) -> dict[str, Any] 
         "w": w,
         "h": h,
         "font_pt": font_pt,
+        "auto_fit": auto_fit,
         "right": x + w,
         "bottom": y + h,
     }
@@ -245,7 +251,24 @@ def _analyze_text_shapes(prs: Presentation) -> list[dict[str, Any]]:
                     )
 
             fill_ratio = estimated_h / h if h > 0 else 0.0
-            if fill_ratio >= 1.05:
+            if fill_ratio >= 1.05 and bool(record.get("auto_fit")):
+                severity = "warning" if fill_ratio >= 2.50 else "info"
+                issues.append(
+                    _issue(
+                        slide_num,
+                        "text_autofit_pressure",
+                        severity,
+                        f"Shrink-to-fit is active; estimated text pressure is {fill_ratio:.0%}.",
+                        shape_id=str(record["shape_id"]),
+                        suggestion="Inspect the rendered text size; enlarge the box or shorten copy if shrinkage is visible.",
+                        extra={
+                            "estimated_height_in": round(estimated_h, 2),
+                            "box_height_in": round(h, 2),
+                            "auto_fit": True,
+                        },
+                    )
+                )
+            elif fill_ratio >= 1.05:
                 issues.append(
                     _issue(
                         slide_num,
@@ -302,19 +325,26 @@ def _analyze_text_shapes(prs: Presentation) -> list[dict[str, Any]]:
         ]
         for title in title_records:
             title_lines = _wrap_words(str(title["text"]), float(title["w"]), float(title["font_pt"]))
-            title_bottom = float(title["y"]) + _estimated_text_height(title_lines, float(title["font_pt"]))
+            title_bottom = max(
+                float(title["y"]) + _estimated_text_height(title_lines, float(title["font_pt"])),
+                float(title["y"]) + float(title["h"]),
+            )
             below = [
                 r
                 for r in records
                 if r["shape_id"] != title["shape_id"]
-                and float(r["y"]) > float(title["y"]) + 0.02
+                and float(r["y"]) >= float(title["y"]) + float(title["h"]) - 0.02
                 and float(r["y"]) < slide_h - 0.75
+                and (
+                    min(float(title["right"]), float(r["right"]))
+                    - max(float(title["x"]), float(r["x"]))
+                ) >= min(float(title["w"]), float(r["w"])) * 0.35
             ]
             if not below:
                 continue
             next_record = min(below, key=lambda r: float(r["y"]))
             gap = float(next_record["y"]) - title_bottom
-            if gap < 0.10:
+            if gap < -0.02:
                 issues.append(
                     _issue(
                         slide_num,
@@ -331,7 +361,13 @@ def _analyze_text_shapes(prs: Presentation) -> list[dict[str, Any]]:
                 )
 
         footer_records = [r for r in records if float(r["y"]) >= slide_h - 0.78]
-        body_records = [r for r in records if float(r["bottom"]) < slide_h - 0.55]
+        footer_shape_ids = {r["shape_id"] for r in footer_records}
+        body_records = [
+            r
+            for r in records
+            if r["shape_id"] not in footer_shape_ids
+            and float(r["bottom"]) < slide_h - 0.55
+        ]
         if footer_records and body_records:
             footer_top = min(float(r["y"]) for r in footer_records)
             nearest_body = max(float(r["bottom"]) for r in body_records)

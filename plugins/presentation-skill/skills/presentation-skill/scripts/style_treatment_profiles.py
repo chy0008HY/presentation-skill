@@ -55,6 +55,7 @@ SUPPORTED_STRUCTURAL_MOTIFS = [
 RENDERER_TREATMENT_FIELDS = (
     "page_system",
     "structural_motif",
+    "header_variant",
     "title_layout",
     "footer_mode",
     "chart_treatment",
@@ -452,6 +453,7 @@ def renderer_treatment_defaults_from_mix(preset: str, mix: dict[str, Any]) -> di
             mix.get("structural_motif_pool"),
             STRUCTURAL_MOTIF_BY_PRESET.get(key, "clinical-stages"),
         ),
+        "header_variant": "auto",
         "title_layout": _first_pool_value(mix.get("title_layout_pool"), "split-hero"),
         "footer_mode": footer,
         "chart_treatment": _first_pool_value(mix.get("chart_treatment_pool"), "standard"),

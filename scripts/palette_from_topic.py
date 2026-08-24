@@ -37,10 +37,10 @@ PALETTE_PRESETS: list[dict[str, object]] = [
         "keywords": {"energy", "grid", "power", "solar", "battery", "industrial"},
         "palette_key": "energy_sunset_v1",
         "palette": {
-            "dominant": "7C2D12",
-            "support": "9A3412",
-            "accent": "F59E0B",
-            "neutral": "FFF7ED",
+            "dominant": "173B3F",
+            "support": "2F7D76",
+            "accent": "C65D3B",
+            "neutral": "F6F8F5",
         },
     },
     {

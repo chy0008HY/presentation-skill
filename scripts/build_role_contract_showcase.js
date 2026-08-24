@@ -23,18 +23,81 @@ const GRAMMARS = [
 ];
 
 function parseArgs(argv) {
-  const args = { output: path.join(ROOT, 'examples', 'v0.9_full_deck_taste_grammar_gallery.pptx') };
+  const args = {
+    output: path.join(ROOT, 'examples', 'v0.9_full_deck_taste_grammar_gallery.pptx'),
+    manifest: '',
+    adapterProof: false,
+  };
   for (let index = 2; index < argv.length; index += 1) {
     if (argv[index] === '--output' && argv[index + 1]) {
       args.output = argv[index + 1];
       index += 1;
+    } else if (argv[index] === '--manifest' && argv[index + 1]) {
+      args.manifest = argv[index + 1];
+      index += 1;
+    } else if (argv[index] === '--adapter-proof') {
+      args.adapterProof = true;
     }
   }
   return args;
 }
 
-function roleSlides(grammarLabel) {
+function roleSlides(grammarLabel, adapterProof = false) {
   const footer = `Urban heat resilience pilot | ${grammarLabel}`;
+  if (adapterProof) {
+    return [
+      {
+        type: 'title', role: 'title', proof_role: 'title_alternate', role_layout_variant: 'alternate',
+        title: 'Cooling the Last 5 Degrees',
+        subtitle: 'A neighborhood heat-resilience pilot designed for measurable relief, accountable delivery, and a 90-day decision.',
+        kicker: grammarLabel, footer,
+      },
+      {
+        type: 'section', role: 'section', proof_role: 'section_dense', role_layout_variant: 'dense',
+        title: 'From exposure to action',
+        subtitle: 'Locate the hottest blocks, test three interventions, then scale only what improves lived conditions.',
+        section_number: '02', footer,
+      },
+      {
+        type: 'content', role: 'evidence', proof_role: 'evidence_cards_2', variant: 'cards-2',
+        role_layout_variant: 'primary', title: 'Two conditions make a targeted pilot testable',
+        subtitle: 'Concentrated exposure and a measurable intervention window',
+        cards: [
+          { title: 'Concentrated heat', body: 'Fourteen blocks carry the highest combined exposure and vulnerability score.' },
+          { title: 'Observable response', body: 'Surface temperature and resident comfort can both be measured inside ninety days.' },
+        ],
+        footer,
+      },
+      {
+        type: 'content', role: 'evidence', proof_role: 'evidence_cards_3', variant: 'cards-3',
+        role_layout_variant: 'alternate', title: 'The pilot joins place, intervention, and proof',
+        subtitle: 'Three editable evidence cards routed through mirrored grammar slots',
+        cards: [
+          { title: 'Place', body: 'Prioritize the hottest blocks with low canopy and high resident vulnerability.' },
+          { title: 'Intervention', body: 'Pair durable shade with rapidly deployable cooling measures.' },
+          { title: 'Proof', body: 'Require temperature relief, comfort improvement, and manageable upkeep.' },
+        ],
+        footer,
+      },
+      {
+        type: 'content', role: 'evidence', proof_role: 'evidence_timeline', variant: 'timeline',
+        role_layout_variant: 'dense', title: 'A ninety-day cycle converts evidence into a scale decision',
+        subtitle: 'Milestones remain editable while the grammar controls their spatial hierarchy',
+        milestones: [
+          { label: 'D14', title: 'Baseline', body: 'Sensors and resident pulse active across fourteen blocks.' },
+          { label: 'D30', title: 'Deploy', body: 'Shade, cool-roof, and rapid-cooling cohorts begin.' },
+          { label: 'D60', title: 'Compare', body: 'Temperature, comfort, uptime, and upkeep are reviewed.' },
+          { label: 'D90', title: 'Decide', body: 'Scale, revise, or stop each intervention.' },
+        ],
+        footer,
+      },
+      ...roleSlides(grammarLabel, false).slice(3).map((slide, index) => ({
+        ...slide,
+        proof_role: ['comparison', 'chart', 'table', 'decision', 'references'][index],
+        role_layout_variant: index % 3 === 0 ? 'alternate' : (index % 3 === 1 ? 'dense' : 'primary'),
+      })),
+    ];
+  }
   return [
     {
       type: 'title', role: 'title', title: 'Cooling the Last 5 Degrees',
@@ -146,8 +209,10 @@ async function main() {
   pptx.title = 'v0.9 Full-Deck Taste Grammar Gallery';
   pptx.subject = 'One urban heat topic rendered through eight editable role-layout grammars.';
 
-  const totalSlides = GRAMMARS.length * 8;
+  const slidesPerGrammar = roleSlides(GRAMMARS[0][2], args.adapterProof).length;
+  const totalSlides = GRAMMARS.length * slidesPerGrammar;
   let slideIndex = 0;
+  const manifestDecks = [];
   for (const [grammarId, presetName, grammarLabel] of GRAMMARS) {
     const contract = contractsForGrammar(grammarId, presetName);
     const deckData = {
@@ -156,19 +221,37 @@ async function main() {
       deck_style: { footer_page_numbers: true },
     };
     const preset = builder.applyDeckStyle(getPreset(presetName), deckData, presetName);
-    for (const raw of roleSlides(grammarLabel)) {
+    const manifestSlides = [];
+    for (const raw of roleSlides(grammarLabel, args.adapterProof)) {
       slideIndex += 1;
       const slideData = builder.normalizeSlide(raw, ROOT);
       slideData.__slideIndex = slideIndex;
       slideData.__slideCount = totalSlides;
       const slide = pptx.addSlide();
       builder.renderSlide(pptx, slide, slideData, preset);
+      manifestSlides.push({
+        role: String(raw.proof_role || raw.role),
+        index: slideIndex,
+        render_receipt: slideData.__renderReceipt || null,
+      });
     }
+    manifestDecks.push({ id: grammarId, pptx: path.resolve(args.output), slides: manifestSlides });
   }
 
   const output = path.resolve(args.output);
   fs.mkdirSync(path.dirname(output), { recursive: true });
   await pptx.writeFile({ fileName: output });
+  if (args.manifest) {
+    const manifestPath = path.resolve(args.manifest);
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    fs.writeFileSync(manifestPath, JSON.stringify({
+      schema_version: 'renderer-v2-adapter-proof/v1',
+      source: 'scripts/build_role_contract_showcase.js',
+      adapter_proof: args.adapterProof,
+      decks: manifestDecks.map((deck) => ({ ...deck, pptx: output })),
+      coherent_groups: Object.fromEntries(GRAMMARS.map(([grammarId]) => [grammarId, grammarId])),
+    }, null, 2) + '\n');
+  }
   process.stdout.write(`${output}\n`);
 }
 

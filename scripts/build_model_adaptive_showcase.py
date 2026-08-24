@@ -7,6 +7,7 @@ import argparse
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -363,7 +364,7 @@ def build(outdir: Path, proof: Path, overwrite: bool) -> dict[str, Any]:
     if workspace.exists() and any(workspace.iterdir()):
         raise FileExistsError(f"Output workspace already exists: {workspace}")
     _run([
-        "python3",
+        sys.executable,
         "scripts/init_deck_workspace.py",
         "--workspace",
         str(workspace),
@@ -384,7 +385,7 @@ def build(outdir: Path, proof: Path, overwrite: bool) -> dict[str, Any]:
         encoding="utf-8",
     )
     _run([
-        "python3",
+        sys.executable,
         "scripts/build_workspace.py",
         "--workspace",
         str(workspace),
@@ -395,7 +396,7 @@ def build(outdir: Path, proof: Path, overwrite: bool) -> dict[str, Any]:
         "--fail-on-whitespace-warnings",
         "--overwrite",
     ])
-    _run(["python3", "scripts/report_delivery_readiness.py", "--workspace", str(workspace)])
+    _run([sys.executable, "scripts/report_delivery_readiness.py", "--workspace", str(workspace)])
     contact_sheet = workspace / "build" / "qa" / "visual_review" / "contact_sheet.jpg"
     proof.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(contact_sheet, proof)

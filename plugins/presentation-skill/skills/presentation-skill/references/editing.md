@@ -3,11 +3,38 @@
 Use this flow when you have a `.pptx` you did not generate from an outline, and
 you need to change it without rebuilding from scratch.
 
-## Three Tools, Three Levels
+## Preserve First
 
-1. `scripts/edit_deck.py` — python-pptx edits for common cases.
-2. `scripts/unpack_pptx.py` + `scripts/pack_pptx.py` — XML-level edits.
-3. Outline rebuild (`scripts/build_deck.py`) — anything structural or stylistic.
+Inspect a standalone reference deck before editing it:
+
+```bash
+python3 scripts/reference_deck.py inspect \
+  --input deck.pptx \
+  --output reference_deck_manifest.json
+```
+
+The manifest records stable PowerPoint slide/shape IDs, object types,
+editability, geometry/style/text hashes, and alt text. For a narrow text or
+alt-text edit, author a typed `reference_deck_patch_v1` plan against those IDs:
+
+```bash
+python3 scripts/reference_deck.py patch \
+  --input deck.pptx \
+  --plan patch.json \
+  --output deck_v2.pptx \
+  --report patch_report.json
+```
+
+Only `replace_text` and `set_alt_text` are registered. Text and alt-text
+preconditions reject stale plans. The patch writes a new deck and proves that
+untouched object identity, geometry, style, and text remained unchanged.
+
+## Four Tools, Four Levels
+
+1. `scripts/reference_deck.py` — guarded, preserve-by-default object patches.
+2. `scripts/edit_deck.py` — broader python-pptx edits for common cases.
+3. `scripts/unpack_pptx.py` + `scripts/pack_pptx.py` — XML-level edits.
+4. Outline rebuild (`scripts/build_deck.py`) — anything structural or stylistic.
 
 Pick the lowest-level tool that can do the job.
 

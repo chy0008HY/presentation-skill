@@ -116,6 +116,13 @@ If `deck_style`/`compliance` are omitted, current behavior remains:
 - `role_layout_variant`: optional per-slide bounded override:
   `primary | alternate | dense`. This chooses a contract-supported treatment;
   it does not expose coordinates.
+- `role`: concrete renderer structure (`evidence`, `comparison`, `chart`,
+  `table`, `decision`, or `references`). Keep it aligned with the editable
+  object requested by `variant`; for example, an evidence-bearing chart uses
+  `role: chart` and `slide_intent: evidence`.
+- `slide_intent`: narrative job such as `context`, `evidence`,
+  `recommendation`, or `implementation`. It guides the story but does not
+  force a chart or table to use an incompatible renderer contract.
 - `emoji_mode`: `none | selective`
 - `research_visual_mode`: boolean. Use `true` when a deck should actively use
   source-backed images/figures and attribution, usually after running
@@ -804,6 +811,10 @@ Variant-specific fields:
 - `variant` (string; content slides only)
 - `background_image` (string; local image path)
 - `thumbnails` (array of up to 3 local image paths)
+- `alt_text` / `image_alt_text` / `figure_alt_text` (string; a concise,
+  meaningful description for non-decorative visual content. Use
+  `chart_alt_text` only when the automatically derived chart description is
+  insufficient.)
 - `caption` (string; used on flow/visual slides)
 - `message` (string; recommended for decision-oriented flow slides)
 - `chart` (object|string; inline chart data or staged `chart:name` alias)

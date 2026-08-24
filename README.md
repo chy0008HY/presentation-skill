@@ -40,10 +40,13 @@ Skill name: `presentation-skill`. Aliases for fuzzy skill matching and search: `
 
 - **A pptxgenjs renderer with 16 content variants plus title and section slides.** `standard`, `split`, `cards-2`, `cards-3`, `timeline`, `stats`, `kpi-hero`, `comparison-2col`, `matrix`, `chart`, `table`, `lab-run-results`, `image-sidebar`, `scientific-figure`, `flow` (Mermaid), and `generated-image`. Each variant has its own layout discipline so a deck doesn't collapse into bullet-list-after-bullet-list.
 - **A preset system across 13 style families.** Lab report, executive clinical, board risk memo, investor reveal, editorial report, civic science policy, and so on. Each owns a palette, font pair, density profile, and bounded visual interpretation.
-- **Eight full-deck composition grammars above the presets.** Answer Pyramid, Evidence Plate, Care Pathway, Editorial Spread, Thesis Stage, Operating Grid, Public Docket, and Telemetry Canvas each own distinct role contracts for title, section, evidence, comparison, chart, table, decision, and references. The compiler turns normalized semantic slots into editable PowerPoint geometry; slide-level overrides stay bounded to `primary`, `alternate`, or `dense`.
-- **A descriptor-only style corpus (~2,200 records) atomized into a LEGO token atlas.** The corpus carries described palettes, layouts, density patterns, and structural motifs from public deck-like sources (no copied assets). It's processed into 311 composable atoms across 12 atom types (palette, typography, layout_motif, chart_treatment, table_treatment, header_treatment, footer_treatment, decorative_motif, density, arc_beat, rhythm_signature, content_treatment). A composition router queries the atlas to mix and match atoms across families per topic, so decks pull grammar — not just colors — from the corpus.
-- **A three-step QA loop.** Geometric checks (overflow, overlap, density), rendered-image visual inspection on JPGs, and a placeholder-text grep that catches leftover `TODO`/`lorem`/`xxx` strings. The visual-inspection prompt is biased toward finding problems, not confirming the deck looks fine.
-- **Workspace mode for decks you'll rebuild later.** `design_brief.json`, `content_plan.json`, `evidence_plan.json`, `asset_plan.json`, `outline.json`, and `notes.md` live in a folder. Readiness diagnostics tell the agent what to fix next instead of re-running blind.
+- **Eight full-deck composition grammars above the presets.** Answer Pyramid, Evidence Plate, Care Pathway, Editorial Spread, Thesis Stage, Operating Grid, Public Docket, and Telemetry Canvas own role contracts for title, section, evidence, comparison, chart, table, decision, and references. A semantic render plan keeps role and visual variant separate, uses v2 geometry only for supported pairs, and records explicit v1/legacy fallbacks instead of silently substituting layouts. Slide overrides stay bounded to `primary`, `alternate`, or `dense`.
+- **A descriptor-only style corpus (~2,200 records) atomized into a composable token atlas.** The corpus carries described palettes, layouts, density patterns, and structural motifs from public deck-like sources (no copied assets). It's processed into 311 atoms across 12 types. New workspaces route the topic to a preset and independently select a composition grammar, so an advanced model can mix bounded design signals instead of receiving one static template.
+- **A lightweight model-adaptive entrypoint.** `present.py` gives Luna one deterministic grammar, Terra two bounded choices, and Sol three. The compact brief stays under 9 KB in the release smoke; normal workspaces omit the large audit packet unless it is explicitly requested.
+- **A layered QA loop with exact-review receipts.** Geometry, rendered-image inspection, placeholder detection, design rules, and optional accessibility checks catch deterministic failures. For high-stakes delivery, a human/model verdict can be bound to the exact PPTX and rendered-slide hashes, so a rebuilt deck cannot reuse stale approval.
+- **Workspace mode with a versioned Deck IR.** Planning sources live beside `outline.json`; each build derives a deterministic coordinate-free `deck_ir.json` with stable object IDs, semantic intent, evidence links, and editability metadata. Readiness diagnostics tell the agent what to fix next instead of re-running blind.
+- **Preserve-by-default reference editing.** A standalone `.pptx` can be inspected into stable slide/shape IDs, patched through registered text/alt-text actions with preconditions, and checked to prove untouched geometry, style, and text stayed unchanged.
+- **An honest cross-generator benchmark protocol.** A frozen hidden prompt matrix, exact artifact ingestion, hard gates, blinded Content/Aesthetics/Editability review, and paired bootstrap analysis support same-denominator Codex-native, Claude Code, and skill comparisons. The harness never pretends it executed an external generator.
 
 ## See it
 
@@ -75,7 +78,7 @@ npx skills add https://github.com/siril9/presentation-skill \
 Add this repo as a Codex plugin marketplace, then open `/plugins` in Codex and install `presentation-skill` from the **Presentation Skill** marketplace:
 
 ```bash
-codex plugin marketplace add siril9/presentation-skill --ref v0.9.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.10.0
 ```
 
 For local development against a checkout:
@@ -94,47 +97,45 @@ Clone or copy this repo into your Codex skills directory:
 git clone https://github.com/siril9/presentation-skill \
   $CODEX_HOME/skills/presentation-skill
 cd $CODEX_HOME/skills/presentation-skill
-pip install python-pptx "markitdown[pptx]" matplotlib pandas openpyxl
 npm install
+npm run setup:python
+npm run doctor
 ```
+
+`setup:python` creates `.venv`, installs the exact core Python versions from
+`scripts/requirements-runtime.txt`, and validates every required import. Run
+`npm run doctor` at any time to get the failing import and the exact repair
+commands. Optional extraction and data workflows may additionally require
+`markitdown[pptx]`, `matplotlib`, `pandas`, or `openpyxl`.
 
 Core generation does not require LibreOffice. Render-based verification uses LibreOffice `soffice` and Poppler `pdftoppm` when available.
 
 ## Try It
 
-Build and verify the bundled example:
+Emit a compact route for a quick deck:
 
 ```bash
-node scripts/build_deck_pptxgenjs.js \
-  --outline examples/outline.json \
-  --output out.pptx \
-  --style-preset executive-clinical
+python3 scripts/present.py brief \
+  --topic "Q3 retention review" \
+  --prompt "Board decision with a variance chart and owner table" \
+  --profile terra \
+  --output quick_deck_agent_brief.json
 ```
 
-Then verify:
+After authoring `outline.json`, build, render, and verify it:
 
 ```bash
-python3 scripts/qa_gate.py \
-  --input out.pptx \
-  --outdir /tmp/pptx-qa \
-  --style-preset executive-clinical \
-  --skip-render
+python3 scripts/present.py finalize \
+  --outline /absolute/path/outline.json \
+  --output /absolute/path/out.pptx \
+  --qa-dir /absolute/path/pptx-qa
 ```
 
-For production builds, add `--strict-geometry --fail-on-design-warnings --fail-on-whitespace-warnings` and complete one manual visual review (which writes a `manual_review_passed.flag` into the outdir) before re-running.
+The finalizer runs the strict geometry, whitespace, design, accessibility, render, and visual-review gates. Use a hash-bound visual-review receipt for high-stakes delivery.
 
 For agents, the shortest useful prompt is:
 
 > Use `presentation-skill` to build a 7-slide editable PowerPoint deck. Treat `outline.json` as source, choose a preset that fits the topic, use charts/tables/figures where they help, and run the QA gate before delivery.
-
-To inspect the grammar selected for a topic before authoring:
-
-```bash
-python3 scripts/composition_grammar_catalog.py \
-  --topic "Q3 retention review" \
-  --user-prompt "Board decision with variance chart and owner table" \
-  --style-preset data-heavy-boardroom
-```
 
 ## What people actually build with this
 
@@ -154,17 +155,19 @@ The most useful feedback is a concrete deck-quality miss: repeated layout, crowd
 For decks you'll rebuild or extend later, use workspace mode:
 
 ```bash
-python3 scripts/init_deck_workspace.py \
-  --workspace decks/my-deck \
+python3 scripts/present.py init \
+  --workspace /absolute/path/decks/my-deck \
   --title "My Deck Title" \
-  --style-preset executive-clinical
+  --prompt "Original request" \
+  --profile auto \
+  --style-preset auto
 
 # edit outline.json + brief, then:
-python3 scripts/build_workspace.py \
-  --workspace decks/my-deck \
-  --qa \
-  --overwrite
+python3 scripts/present.py build \
+  --workspace /absolute/path/decks/my-deck
 ```
+
+Add `--audit-packet` during initialization only when a full intake/multi-agent recovery ledger is useful.
 
 Two scripts make workspaces self-driving:
 
@@ -213,6 +216,7 @@ Copy-ready community posts and curation-request text live in [`docs/PROMOTION.md
 
 ## Releases
 
+- [`v0.10.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.10.0) — lightweight Luna/Terra/Sol routing, a single public CLI, compact default workspaces, warning-aware preflight handling, content-aware title fitting, and lean plugin/npm packaging.
 - [`v0.9.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.9.0) — full-deck role-layout compiler, eight structural systems per role, explicit v1-to-v2 workspace migration, typed readiness actions, and a 64-slide editable proof gallery.
 - [`v0.8.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.8.0) — Codex plugin packaging, repo marketplace entry, synced plugin skill snapshot, and marketplace install docs.
 - [`v0.7.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.7.0) — optional first-class atom composition in the normal deck-start/design-contract/style-router workflow, plus README proof boards for renderer variants, style families, and Codex-native vs updated-skill comparison.

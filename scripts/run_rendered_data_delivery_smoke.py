@@ -25,7 +25,8 @@ from run_design_contract_apply_smoke import USER_PROMPT, _answers_for, _contract
 
 
 DATA_REL = "data/assay_readouts.csv"
-EXPECTED_TRIPLET_VARIANTS = ["image-sidebar", "chart", "lab-run-results"]
+EXPECTED_FIGURE_VARIANTS = {"image-sidebar", "scientific-figure"}
+EXPECTED_TRIPLET_COUNT = 3
 EXPECTED_SIDEBAR_BODY_FONT_SIZE = 16
 ZERO_QA_COUNT_KEYS = [
     "overflow_count",
@@ -231,6 +232,19 @@ def _selection_bindings(selection: dict[str, Any]) -> list[dict[str, str]]:
             }
         )
     return normalized
+
+
+def _valid_triplet_variants(variants: Any) -> bool:
+    return (
+        isinstance(variants, list)
+        and len(variants) == EXPECTED_TRIPLET_COUNT
+        and variants[0] in EXPECTED_FIGURE_VARIANTS
+        and variants[1:] == ["chart", "lab-run-results"]
+    )
+
+
+def _expected_triplet_description() -> list[Any]:
+    return [sorted(EXPECTED_FIGURE_VARIANTS), "chart", "lab-run-results"]
 
 
 def _command_duration(command_results: list[dict[str, Any]], needle: str) -> int:
@@ -690,7 +704,7 @@ def main() -> int:
                 binding
                 for binding in bindings
                 if isinstance(binding, dict)
-                and str(binding.get("variant") or "") == "image-sidebar"
+                and str(binding.get("variant") or "") in EXPECTED_FIGURE_VARIANTS
             ),
             {},
         )
@@ -709,12 +723,12 @@ def main() -> int:
         outline_sidebar_body_font_size = figure_slide.get("sidebar_body_font_size")
         if not bindings:
             failures.append({"step": "artifact_selection", "reason": "missing_bindings", "selection": selection})
-        if binding_variants != EXPECTED_TRIPLET_VARIANTS:
+        if not _valid_triplet_variants(binding_variants):
             failures.append(
                 {
                     "step": "artifact_selection",
                     "reason": "triplet_variants_not_bound",
-                    "expected": EXPECTED_TRIPLET_VARIANTS,
+                    "expected": _expected_triplet_description(),
                     "actual": binding_variants,
                     "bindings": normalized_bindings,
                 }
@@ -743,14 +757,14 @@ def main() -> int:
         if (
             not isinstance(artifact_apply, dict)
             or artifact_apply.get("applied") is not True
-            or artifact_apply.get("selection_count") != len(EXPECTED_TRIPLET_VARIANTS)
+            or artifact_apply.get("selection_count") != EXPECTED_TRIPLET_COUNT
             or artifact_apply.get("auto_select_mode") != "all"
         ):
             failures.append(
                 {
                     "step": "artifact_apply",
                     "reason": "triplet_apply_not_recorded",
-                    "expected_selection_count": len(EXPECTED_TRIPLET_VARIANTS),
+                    "expected_selection_count": EXPECTED_TRIPLET_COUNT,
                     "report": artifact_apply,
                 }
             )
@@ -894,15 +908,15 @@ def main() -> int:
         if artifact_manifest.get("output_count", 0) < 1 or DATA_REL not in artifact_sources:
             failures.append({"step": "build_report", "reason": "artifact_context_missing", "artifact_context": artifact_context})
         if (
-            artifact_selection.get("binding_count") != len(EXPECTED_TRIPLET_VARIANTS)
-            or artifact_selection.get("variants") != EXPECTED_TRIPLET_VARIANTS
+            artifact_selection.get("binding_count") != EXPECTED_TRIPLET_COUNT
+            or not _valid_triplet_variants(artifact_selection.get("variants", []))
             or artifact_selection.get("slide_ids") != selected_slide_ids
         ):
             failures.append(
                 {
                     "step": "build_report",
                     "reason": "triplet_artifact_selection_context_missing",
-                    "expected_variants": EXPECTED_TRIPLET_VARIANTS,
+                    "expected_variants": _expected_triplet_description(),
                     "expected_slide_ids": selected_slide_ids,
                     "artifact_selection": artifact_selection,
                 }
@@ -980,15 +994,15 @@ def main() -> int:
         if delivery_manifest.get("output_count", 0) < 1 or delivery_artifacts.get("tabular_data") != [DATA_REL]:
             failures.append({"step": "delivery_readiness", "reason": "artifact_context_missing", "artifact_context": delivery_artifacts})
         if (
-            delivery_selection.get("binding_count") != len(EXPECTED_TRIPLET_VARIANTS)
-            or delivery_selection.get("variants") != EXPECTED_TRIPLET_VARIANTS
+            delivery_selection.get("binding_count") != EXPECTED_TRIPLET_COUNT
+            or not _valid_triplet_variants(delivery_selection.get("variants", []))
             or delivery_selection.get("slide_ids") != selected_slide_ids
         ):
             failures.append(
                 {
                     "step": "delivery_readiness",
                     "reason": "triplet_artifact_selection_context_missing",
-                    "expected_variants": EXPECTED_TRIPLET_VARIANTS,
+                    "expected_variants": _expected_triplet_description(),
                     "expected_slide_ids": selected_slide_ids,
                     "artifact_selection": delivery_selection,
                 }

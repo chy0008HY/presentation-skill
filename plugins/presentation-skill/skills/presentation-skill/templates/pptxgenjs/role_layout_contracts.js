@@ -68,9 +68,20 @@ function transformSlots(slots, variant) {
   for (const [name, raw] of Object.entries(slots || {})) {
     if (!Array.isArray(raw) || raw.length !== 4) continue;
     const [x, y, w, h] = raw.map(Number);
-    out[name] = variant === 'alternate'
-      ? [Number((1 - x - w).toFixed(6)), y, w, h]
-      : [x, y, w, h];
+    if (variant === 'alternate') {
+      out[name] = [Number((1 - x - w).toFixed(6)), y, w, h];
+      continue;
+    }
+    if (variant === 'dense') {
+      const left = Math.max(0, x - 0.012);
+      const top = Math.max(0, y - 0.018);
+      const right = Math.min(1, x + w + 0.012);
+      const bottom = Math.min(1, y + h + 0.018);
+      out[name] = [left, top, right - left, bottom - top]
+        .map((value) => Number(value.toFixed(6)));
+      continue;
+    }
+    out[name] = [x, y, w, h];
   }
   return out;
 }

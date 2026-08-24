@@ -5,11 +5,11 @@ Copy, trim, and post these snippets when sharing `presentation-skill`.
 ## Canonical Links
 
 - Repository: <https://github.com/siril9/presentation-skill>
-- Release: <https://github.com/siril9/presentation-skill/releases/tag/v0.9.0>
+- Release: <https://github.com/siril9/presentation-skill/releases/tag/v0.10.0>
 - Install:
 
 ```bash
-codex plugin marketplace add siril9/presentation-skill --ref v0.9.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.10.0
 ```
 
 Then open `/plugins` in Codex and install `presentation-skill` from the
@@ -37,12 +37,12 @@ workflows, and workspace mode for decks you need to rebuild later.
 Install:
 
 ```bash
-codex plugin marketplace add siril9/presentation-skill --ref v0.9.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.10.0
 ```
 
 Repo and release:
 <https://github.com/siril9/presentation-skill>
-<https://github.com/siril9/presentation-skill/releases/tag/v0.9.0>
+<https://github.com/siril9/presentation-skill/releases/tag/v0.10.0>
 
 I am looking for feedback from people who build lab reports, board decks,
 clinical summaries, investor updates, or agent-generated documents.
@@ -65,10 +65,10 @@ The idea is to treat a deck like code: outline.json is the source, a script buil
 The latest release adds eight full-deck role-layout grammars, so evidence, comparison, chart, table, decision, and source slides change structure instead of only changing color.
 
 Install:
-codex plugin marketplace add siril9/presentation-skill --ref v0.9.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.10.0
 
 Release evidence includes three role-focused contact sheets and a 64-slide editable gallery:
-https://github.com/siril9/presentation-skill/releases/tag/v0.9.0
+https://github.com/siril9/presentation-skill/releases/tag/v0.10.0
 
 I am mostly looking for feedback on whether source-first / QA-loop workflows are useful for agent-built documents, and what would make generated decks feel closer to strong human-designed consulting, lab, or report decks.
 ```
@@ -81,7 +81,7 @@ I released presentation-skill, an MIT-licensed Codex plugin for source-first Pow
 It packages a reusable agent workflow: write outline.json, build an editable pptxgenjs deck, choose a preset/style route, generate chart/table/figure artifacts where useful, and run geometry/render/placeholder/readability QA before delivery.
 
 Install:
-codex plugin marketplace add siril9/presentation-skill --ref v0.9.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.10.0
 
 Repo:
 https://github.com/siril9/presentation-skill
@@ -99,7 +99,7 @@ I open-sourced a Codex plugin for generating editable PowerPoint decks from stru
 It treats a deck like source code: outline.json -> pptxgenjs -> editable .pptx -> QA checks. It includes slide variants, style families, generated charts/tables/figures, and reproducible workspace mode.
 
 Install:
-codex plugin marketplace add siril9/presentation-skill --ref v0.9.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.10.0
 
 Repo:
 https://github.com/siril9/presentation-skill
@@ -117,7 +117,7 @@ outline.json -> editable .pptx -> layout/render/readability QA.
 Eight full-deck role-layout grammars, 16 content variants, chart/table/figure artifacts, and reproducible workspace mode.
 
 Install:
-codex plugin marketplace add siril9/presentation-skill --ref v0.9.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.10.0
 
 https://github.com/siril9/presentation-skill
 ```
@@ -133,10 +133,10 @@ Repository:
 https://github.com/siril9/presentation-skill
 
 Release:
-https://github.com/siril9/presentation-skill/releases/tag/v0.9.0
+https://github.com/siril9/presentation-skill/releases/tag/v0.10.0
 
 Install:
-codex plugin marketplace add siril9/presentation-skill --ref v0.9.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.10.0
 
 It is an MIT-licensed plugin for source-first PowerPoint/PPTX generation. It bundles a reusable skill workflow for editable deck generation from outline.json, pptxgenjs rendering, style/content routing, data artifact creation, and QA checks for geometry, rendered slides, placeholder text, readability, and reproducibility.
 

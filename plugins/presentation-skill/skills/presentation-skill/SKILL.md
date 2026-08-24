@@ -1,392 +1,246 @@
 ---
 name: presentation-skill
-description: "Build, edit, redesign, render, and verify polished editable PowerPoint `.pptx` decks from a prompt, structured `outline.json`, local data, or a saved workspace. Use for presentation and slide-deck generation, lab/clinical/scientific reports, board and investor decks, editorial briefs, charts/tables/figures, template-inspired redesign, geometry/readability QA, rendered visual review, and reproducible deck workspaces. Aliases: PowerPoint skill, PPTX skill, presentation generator, slide-deck generator, deck builder, powerpoint-deck-builder, pptx-skill."
+description: Build, edit, redesign, render, and verify polished editable PowerPoint `.pptx` decks from a prompt, structured JSON, local data, or a saved workspace. Use for scientific, lab, clinical, consulting, board, investor, editorial, policy, and operational presentations where narrative, visual hierarchy, readability, and reproducibility matter.
 ---
 
 # Presentation Skill
 
-Create editable PowerPoint decks from source files. The model owns narrative,
-evidence, and design judgment; repository scripts own deterministic rendering,
-staging, and QA.
+Create editable PowerPoint decks from source. The model owns the argument,
+evidence, and design judgment; the skill owns deterministic rendering and QA.
 
-## Backbone
+## Core Contract
 
-- Treat `outline.json`, planning files, local data, and figure scripts as the
-  source of truth.
-- Build with repository scripts. Do not write one-off inline `python-pptx` or
-  `pptxgenjs` deck code.
-- Fix source and rebuild. Do not patch generated `.pptx` files when source is
-  available.
-- Keep charts, tables, text, and layout objects editable where practical.
-- Run QA and inspect rendered slides before delivering a deck.
-- Never install dependencies during a deck task. Report a missing dependency.
-- Scaffold a new topic from its own evidence and story. Do not clone another
-  deck's slide sequence as a house style.
+- Treat `outline.json`, planning files, data, and figure scripts as source.
+- Build with repository commands. Do not write one-off deck generators or patch
+  a generated PPTX when source exists.
+- Keep text, charts, tables, diagrams, and figures editable where practical.
+- Use the selected grammar as a design system, not a fixed slide sequence.
+- Fix source and rebuild until geometry, readability, placeholders, and rendered
+  visual review pass.
+- Do not copy proprietary slides, logos, wording, or distinctive geometry.
 
-## Start Here
-
-Read only the context needed for the current phase:
-
-1. `DESIGN.md` for the compact design contract.
-2. `references/outline_schema.md` for fields and supported variants.
-3. `references/model_adaptive_workflow.md` for execution-profile selection.
-
-Then load one task-specific reference:
-
-- Saved/rebuildable deck: `references/deck_workspace_mode.md`
-- Existing PPTX edit: `references/editing.md`
-- Data/figure workflow: `references/reproducible_workflow.md`
-- Style inspiration or screenshot/template matching:
-  `references/style_reference_catalog.md`
-- Structural diversity or topic-to-grammar routing:
-  `references/composition_grammar_catalog.md`
-- PptxGenJS renderer changes: `references/pptxgenjs.md`
-- Fresh-eyes rendered QA: `references/visual_qa_prompt.md`
-
-Do not preload the corpus, all preset descriptions, or every workflow
-reference. Search or open the selected item on demand.
-
-## Model-Adaptive Route
-
-Use workload profiles as orchestration controls, not as different quality
-definitions:
-
-- `quality-first` (`sol`, `frontier`, `pro`): difficult/high-stakes decks,
-  complex evidence, full rendered review, optional bounded scouts.
-- `balanced` (`terra`, `standard`): default professional route, at most one
-  useful scout, one focused render/repair loop.
-- `fast` (`luna`, `draft`): short internal drafts, deterministic routing,
-  render-free first pass, then one final render.
-- `auto`: choose from the request; high-stakes or evidence-heavy work becomes
-  quality-first, explicit rough drafts become fast, everything else balanced.
-
-The profile changes context and delegation, not the editable source contract or
-final QA bar. Future models should use the smallest prompt that passes real
-deck evaluations; do not add model-specific process prose without evidence.
-
-For a new saved workspace, emit a compact brief automatically:
+Run commands from this skill directory. Use absolute paths for deck files kept
+elsewhere. Check the pinned runtime once:
 
 ```bash
-python3 scripts/init_deck_workspace.py \
-  --workspace decks/my-deck \
-  --title "My Deck" \
-  --style-preset executive-clinical \
-  --user-prompt "Original request" \
-  --agent-profile auto
+npm run doctor
 ```
 
-Read `agent_brief.md` first. It contains the active profile, style route,
-commands, and completion rubric. Keep `deck_start_packet.json` on disk for
-audit/recovery; do not paste it into the active model prompt.
+If required, run `npm run setup:python` once. Do not substitute arbitrary Python
+or Office application workflows for the supported runtime.
 
-To regenerate only the brief:
-
-```bash
-python3 scripts/model_adaptive_workflow.py \
-  --workspace decks/my-deck \
-  --packet deck_start_packet.json \
-  --agent-profile auto
-```
-
-## Choose The Workflow
+## Choose A Route
 
 ### Quick Deck
 
-Use for a one-off 5-10 slide deck when no future rebuild workspace is needed.
-Author `outline.json`, then:
+Use for a one-off 5-10 slide deck.
+
+1. Emit a small model-ready brief:
 
 ```bash
-node scripts/build_deck_pptxgenjs.js \
-  --outline outline.json \
-  --output out.pptx \
-  --style-preset <preset>
-
-python3 scripts/qa_gate.py \
-  --input out.pptx \
-  --outdir /tmp/pptx-qa \
-  --style-preset <preset> \
-  --strict-geometry \
-  --skip-render \
-  --fail-on-design-warnings
+python3 scripts/present.py brief \
+  --topic "Deck topic" \
+  --prompt "Original request" \
+  --slides 7 \
+  --profile auto \
+  --output quick_deck_agent_brief.json
 ```
+
+2. Read the brief and author `outline.json`. Select one bounded route candidate,
+   then adapt its starter sequence to the actual evidence. `role` names the
+   editable structure; `slide_intent` names the story job.
+
+3. Build, render, and hard-gate it:
+
+```bash
+python3 scripts/present.py finalize \
+  --outline /absolute/path/outline.json \
+  --output /absolute/path/output.pptx \
+  --qa-dir /absolute/path/qa
+```
+
+Read `finalize_receipt.json`, `qa_report.json`, and the contact sheet. Repair
+source once, then rerun. Warning-only preflight findings are recorded; outline
+errors and final QA findings remain blocking.
 
 ### Saved Workspace
 
-Use when the deck will be rebuilt, audited, or iterated. Author or update:
+Use for decks that will be rebuilt, audited, or iterated:
 
-- `design_brief.json`: audience, style, readability, QA, and artifact rules
+```bash
+python3 scripts/present.py init \
+  --workspace /absolute/path/deck-workspace \
+  --title "Deck title" \
+  --prompt "Original request" \
+  --profile auto \
+  --style-preset auto
+
+python3 scripts/present.py build \
+  --workspace /absolute/path/deck-workspace \
+  --draft
+
+python3 scripts/present.py build \
+  --workspace /absolute/path/deck-workspace
+```
+
+The default workspace is compact. Add `--audit-packet` to `present.py init` only
+when a full intake/multi-agent recovery ledger is useful.
+
+Author or update:
+
+- `design_brief.json`: audience, style, readability, and QA contract
 - `content_plan.json`: thesis, narrative arc, and slide roles
 - `evidence_plan.json`: claims, sources, and chart candidates
-- `asset_plan.json`: images, charts, tables, icons, and generated assets
+- `asset_plan.json`: figures, tables, charts, images, and icons
 - `outline.json`: renderable slide source
-- `notes.md`: assumptions and unresolved details
+- `notes.md`: assumptions and unresolved decisions
 
-Before rendering a resumed workspace:
-
-```bash
-python3 scripts/report_workspace_readiness.py --workspace decks/my-deck
-```
-
-Build a fast source-first pass:
-
-```bash
-python3 scripts/build_workspace.py \
-  --workspace decks/my-deck \
-  --qa \
-  --skip-render \
-  --fail-on-planning-warnings \
-  --fail-on-whitespace-warnings \
-  --overwrite
-```
-
-Build the final rendered candidate:
-
-```bash
-python3 scripts/build_workspace.py \
-  --workspace decks/my-deck \
-  --qa \
-  --visual-review \
-  --fail-on-visual-review-warnings \
-  --fail-on-planning-warnings \
-  --fail-on-whitespace-warnings \
-  --overwrite
-```
-
-Finish with:
-
-```bash
-python3 scripts/report_delivery_readiness.py --workspace decks/my-deck
-```
+The build also writes deterministic `build/deck_ir.json`, a coordinate-free
+semantic representation with stable object IDs, evidence links, reading order,
+and editability metadata. Renderer scripts continue to own coordinates.
 
 ### Existing PPTX
 
-When source files exist, edit them. For a standalone PPTX with no source,
-inspect before choosing a route:
+When source exists, edit source. For a standalone PPTX, inspect it first:
 
 ```bash
-python3 scripts/inventory.py input.pptx
-python3 scripts/extract_outline.py input.pptx --output extracted-outline.json
+python3 scripts/python_runtime.py scripts/reference_deck.py inspect \
+  --input /absolute/path/input.pptx \
+  --output /absolute/path/reference_deck_manifest.json
 ```
 
-Use `scripts/edit_deck.py` for narrow text/slide edits. Use
-`scripts/extract_pptx_style.py` plus a fresh workspace when the user wants a
-source-first redesign inspired by an existing deck.
+Use a typed `reference_deck_patch_v1` for narrow text or alt-text edits. Use
+`scripts/extract_pptx_style.py` plus a fresh workspace for a source-first
+redesign inspired by an existing deck. Read `references/editing.md` before
+editing package internals.
 
-## Design And Taste
+## Model Profiles
 
-Choose one primary visual grammar from the audience, content structure, and
-evidence burden. Presets are starting points, not templates to reproduce
-unchanged.
+Profiles change orchestration, not the final quality definition:
 
-Use the style corpus as retrieval memory:
+- `fast` / `luna`: one deterministic grammar, no scouts, render-free draft,
+  then one final render.
+- `balanced` / `terra`: two bounded grammar candidates, at most one useful
+  scout, one focused repair loop.
+- `quality-first` / `sol`: three bounded grammar candidates, optional design
+  and data scouts, full rendered review for difficult or high-stakes work.
+- `auto`: quality-first for high-stakes/evidence-heavy work, fast for explicit
+  rough drafts, balanced otherwise.
 
-- Route by topic, audience, evidence shape, density, and narrative arc.
-- Select one primary reference and at most two bounded secondary influences.
-- Convert descriptors into supported renderer fields and topic-specific
-  compositions.
-- Never copy proprietary slides, logos, text, or distinctive geometry.
-- Record public-source rights posture when adding reusable inspiration.
+Use the smallest profile that can pass the artifact gates. Stronger models may
+choose and mix bounded treatments dynamically; they should not receive the full
+corpus or arbitrary coordinates. If uncertain, use the deterministic fallback
+recorded in the brief.
 
-For non-trivial decks, resolve a composition grammar before outline authoring:
+## Design Decisions
 
-```bash
-python3 scripts/composition_grammar_catalog.py \
-  --topic "Deck topic" \
-  --user-prompt "Original request" \
-  --style-preset <preset>
-```
+Choose one primary grammar from topic, audience, evidence shape, and density.
+The eight structural grammar families own distinct title, section, evidence,
+comparison, data, decision, and references systems. Presets contribute palette,
+type, and treatment vocabulary; they are not static templates.
 
-The catalog exposes eight first-class grammars: Answer Pyramid, Evidence
-Plate, Care Pathway, Editorial Spread, Thesis Stage, Operating Grid, Public
-Docket, and Telemetry Canvas. Each grammar owns role systems for title,
-section, evidence, comparison, data, decision, and references plus a narrative
-arc, grid, density, reading path, invariants, and forbidden moves. Normal
-workspace initialization stores the matching `renderer_role_contracts_v2`
-inside the style execution plan and planning files. The v2 contract gives
-title, section, evidence, comparison, chart, table, decision, and references
-their own normalized semantic slots and fallback. Slides may request only the
-bounded `role_layout_variant` values `primary`, `alternate`, or `dense`; do not
-invent coordinates in `outline.json`.
+Maintain these invariants:
 
-Archived workspaces that contain only `renderer_role_systems_v1` remain pinned
-to v1. Upgrade one explicitly and idempotently with:
+- One dominant idea and a clear reading path per slide.
+- Every content slide has a visual or evidence anchor: chart, table, figure,
+  image, KPI, timeline, matrix, or structured comparison.
+- No centered body copy and no sequence dominated by bullet-only slides.
+- Vary composition with the argument; avoid repeating one card grid, border,
+  title treatment, or two-column shell.
+- Use `header_variant: auto` with a stable seed for reproducible heading,
+  top-line, bottom-line, no-line, and compact report treatments.
+- Keep source text and page numbers in the reserved footer region; do not let
+  footer chrome compete with the evidence.
+- Use `role_layout_variant: primary | alternate | dense` for bounded structural
+  variation. Do not place arbitrary coordinates in `outline.json`.
+- Keep one grammar coherent across the deck. Borrow at most two isolated
+  treatments when the content shape benefits.
 
-```bash
-python3 scripts/upgrade_renderer_role_contracts_v2.py \
-  --workspace decks/my-deck
-```
+Readable defaults for ordinary delivery:
 
-Keep the primary grammar's frame, navigation, and reading path coherent. The
-model may choose topic-fit variants and borrow at most two bounded treatment
-moves, but it must not merge complete role systems from unrelated grammars.
+- titles at least 28 pt;
+- body text at least 16 pt;
+- captions, sources, and metadata at least 9 pt;
+- no more than two title lines;
+- shorten, split, or convert prose into evidence objects before shrinking.
 
-When style families appear too similar, run the controlled gate. It renders
-role-complete identical content through every preset, extracts paint-neutral
-semantic geometry, and clusters title, section, evidence, comparison, chart,
-table, decision, references, and dense-content stress slides independently.
-Every role must produce at least eight clusters across the 13 presets, no
-cluster may exceed two presets, normalized entropy must be at least `0.78`,
-and cross-grammar clusters fail:
+Use actual content to balance white space. Sparse slides need a stronger anchor;
+dense slides need fewer words or a more suitable structure, not smaller type.
 
-```bash
-python3 scripts/run_controlled_style_diversity_smoke.py --render \
-  --outdir /tmp/presentation-skill-controlled-diversity
-```
-
-Preset-owned page systems create structural identity at thumbnail scale:
-
-- `clinical-rail`
-- `board-ledger`
-- `editorial-field`
-- `command-canvas`
-- `lab-plate`
-- `investor-thesis`
-
-The model may mix body treatments while keeping one page system coherent.
-Useful composition controls include:
-
-- `image_sidebar_mode`: `analysis-rail`, `evidence-mosaic`, or
-  `editorial-atlas`
-- `comparison_mode`: `open-columns` or `scorecard`
-- `chart_treatment`: `minimal`, `facts-right`, `hero-stat`,
-  `threshold-band`, `sparse-wide`, and supported alternatives
-- `table_treatment`: `compact-ledger`, `readout-sidecar`,
-  `decision-matrix`, `journal-grid`, or `standard`
-- `figure_table_treatment`: `figure-first`, `table-first`, `stats-strip`, or
-  `image-sidebar`
-
-Use these controls because they fit the argument, not to cycle through every
-available mode.
-
-## Slide Planning
-
-- Give every content slide a clear role: context, evidence, method,
-  comparison, implication, decision, or close.
-- Give every content slide a visual/evidence anchor: chart, table, figure,
-  image, stats, KPI, structured comparison, or intentionally designed report
-  body.
-- Vary composition with the story. Do not repeat the same header, card grid,
-  or two-column shell on most slides.
-- Prefer evidence-first variants for scientific and lab decks:
-  `scientific-figure`, `image-sidebar`, `lab-run-results`, `chart`, and
-  `table`.
-- Use `kpi-hero`, dark sections, timelines, flows, and cards only when the
-  content benefits.
-- Keep one dominant object and a deliberate scan path. Avoid awkward unused
-  regions and crowded edge zones.
-- Reserve footer space before laying out the body.
-
-Readable defaults:
-
-- Title floor: 24 pt
-- Body floor: 12 pt
-- Caption floor: 7.5 pt
-- Chart label floor: 7 pt
-- Footer reserve: at least 0.25 in
-
-Shorten, split, or convert dense prose into evidence objects before shrinking
-below the deck's readability contract.
+For structural routing details, read
+`references/composition_grammar_catalog.md`. For screenshot/template
+inspiration, read `references/style_reference_catalog.md`. The descriptor corpus
+is retrieval memory; load only the selected record or distilled atoms.
 
 ## Data And Figures
 
-When local CSV/TSV/XLSX/JSON data should produce reproducible evidence:
+For local CSV, TSV, XLSX, or JSON evidence, keep generated artifacts
+reproducible:
 
 ```bash
-python3 scripts/build_workspace.py \
-  --workspace decks/my-deck \
-  --fast-first-pass
-```
-
-Or scaffold separately:
-
-```bash
-python3 scripts/scaffold_figure_artifacts.py \
-  --workspace decks/my-deck \
+python3 scripts/python_runtime.py scripts/scaffold_figure_artifacts.py \
+  --workspace /absolute/path/deck-workspace \
   --run \
   --bind-outline
 ```
 
-Keep the generated figure script, source fingerprints, chart/table JSON,
-artifact manifest, analysis summary, slide bindings, and rebuild commands.
-Solve figure whitespace and label readability in the figure script before
-placing the image on a slide.
+Preserve source fingerprints, figure scripts, chart/table JSON, artifact
+manifests, slide bindings, and rebuild commands. Solve whitespace and label
+readability in the figure script before placing the figure. Stage sourced images
+through `asset_plan.json` with attribution. Generated imagery must remain
+optional and carry prompt/model/purpose metadata.
 
-Use source-backed images when they improve the deck. Stage them through
-`asset_plan.json` and preserve attribution. Generated imagery is optional,
-must include prompt/model/purpose metadata, and should be removable without
-breaking the narrative.
+Read `references/reproducible_workflow.md` only when the deck contains computed
+evidence or generated figures.
 
-## Delegation
+## QA And Delivery
 
-The main agent owns the final deck and source edits. Use scouts only for
-independent, bounded work:
+A deliverable deck must pass:
 
-- design/content route for a genuinely ambiguous high-stakes deck;
-- data analysis for local datasets or computed evidence;
-- content research for source-backed public claims;
-- fresh-eyes visual critique after render.
+1. planning and outline preflight;
+2. geometry, overflow, overlap, density, and whitespace checks;
+3. rendered contact-sheet and slide-level visual review;
+4. placeholder-text checks;
+5. accessibility checks when required;
+6. final delivery readiness.
 
-Scouts return decisions, findings, or artifact recommendations. They should not
-copy full workspace state, command ladders, or replay ledgers. The main agent
-verifies their output, edits source, builds, and accepts the final artifact.
+Visual review should search for defects: clipped text, weak contrast, awkward
+empty regions, crowded edges, tiny labels, inconsistent alignment, repeated
+grammar, and unreadable sources. Fix source and rebuild.
 
-## QA Loop
+If rendering is unavailable in the execution environment, preserve the built
+deck and static QA report, record the deferred render stage in the receipt, and
+do not probe unrelated Office apps.
 
-For deliverable decks:
+## Progressive References
 
-1. Run planning/preflight and geometry/readability QA.
-2. Render the PPTX and inspect the contact sheet plus individual slides.
-3. Check visible text for placeholders.
-4. Fix source, rebuild, and rerun affected checks.
-5. Run final delivery readiness.
+Read only what the current task needs:
 
-Direct render and review:
+- `DESIGN.md`: compact design contract
+- `references/model_adaptive_workflow.md`: profile selection and context budgets
+- `references/deck_workspace_mode.md`: persistent workspace workflow
+- `references/outline_schema.md`: schema or preflight failures
+- `references/editing.md`: existing PPTX edits
+- `references/reproducible_workflow.md`: data and figure artifacts
+- `references/style_reference_catalog.md`: inspiration and screenshot matching
+- `references/composition_grammar_catalog.md`: structural grammar routing
+- `references/pptxgenjs.md`: renderer development only
+- `references/visual_qa_prompt.md`: independent rendered review
+- `references/benchmark_protocol.md`: fair comparison or superiority claims
 
-```bash
-python3 scripts/render_slides.py \
-  --input out.pptx \
-  --outdir renders \
-  --emit-visual-prompt
+Do not preload all references, presets, or corpus records.
 
-python3 scripts/visual_review.py \
-  --input out.pptx \
-  --outdir review \
-  --renders-dir renders \
-  --outline outline.json
-```
+## Development
 
-Placeholder check:
-
-```bash
-python -m markitdown out.pptx | \
-  grep -iE "\bx{3,}\b|lorem|ipsum|\bTODO|\[insert|\[placeholder"
-```
-
-A successful command is evidence only for the checks it covers. Inspect the
-rendered artifact before claiming the deck is finished.
-
-## Development Checks
-
-Use focused checks after changing a workflow lane:
+After changing runtime behavior, run:
 
 ```bash
 npm run check:python
 npm run check:node
+npm run check:present
 npm run check:focused
 ```
 
-Renderer or style-treatment changes also require:
-
-```bash
-npm run check:style-mix
-npm run check:pptxgenjs-regression
-```
-
-Model-adaptive brief changes require:
-
-```bash
-npm run check:model-adaptive
-```
-
-Run a rendered proof whenever visual behavior changes. Validation without a
-render is not enough for a presentation skill.
+Visual changes require a rendered proof. Showcase decks alone do not justify a
+claim that this skill outperforms another generator; use the frozen benchmark
+protocol and report only supported results.

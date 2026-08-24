@@ -172,7 +172,7 @@
         "reading_order": ["evidence_0", "evidence_1", "evidence_2"], "anchor_slot": "evidence_0",
         "density": {"level": "medium-high", "max_items": 5}, "supported_variants": ["primary", "alternate", "dense"],
         "fallback": {"version": "renderer_role_systems_v1", "system_id": "evidence-clinical-cohort"},
-        "slots": {"evidence_0": [0.00, 0.00, 1.00, 0.22], "evidence_1": [0.00, 0.30, 0.47, 0.70], "evidence_2": [0.53, 0.30, 0.47, 0.70]}
+        "slots": {"evidence_0": [0.18, 0.00, 0.64, 0.34], "evidence_1": [0.00, 0.48, 0.42, 0.52], "evidence_2": [0.58, 0.48, 0.42, 0.52]}
       },
       "comparison": {
         "system_id": "comparison-care-options", "layout_family": "care-options", "coordinate_space": "body",
@@ -200,7 +200,7 @@
         "reading_order": ["decision_0", "decision_1", "decision_2", "decision_3", "commitment"], "anchor_slot": "commitment",
         "density": {"level": "medium-high", "max_items": 5}, "supported_variants": ["primary", "alternate", "dense"],
         "fallback": {"version": "renderer_role_systems_v1", "system_id": "decision-care-gate"},
-        "slots": {"decision_0": [0.00, 0.00, 0.22, 0.66], "decision_1": [0.26, 0.00, 0.22, 0.66], "decision_2": [0.52, 0.00, 0.22, 0.66], "decision_3": [0.78, 0.00, 0.22, 0.66], "commitment": [0.26, 0.76, 0.74, 0.20]}
+        "slots": {"decision_0": [0.00, 0.00, 1.00, 0.20], "decision_1": [0.00, 0.30, 0.25, 0.46], "decision_2": [0.32, 0.30, 0.25, 0.46], "decision_3": [0.64, 0.30, 0.36, 0.28], "commitment": [0.64, 0.66, 0.36, 0.18]}
       },
       "references": {
         "system_id": "references-clinical-evidence", "layout_family": "clinical-evidence", "coordinate_space": "body",
@@ -397,7 +397,7 @@
         "reading_order": ["docket", "headline", "accountability"], "anchor_slot": "docket",
         "density": {"level": "medium", "max_items": 3}, "supported_variants": ["primary", "alternate", "dense"],
         "fallback": {"version": "renderer_role_systems_v1", "system_id": "section-policy-docket"},
-        "slots": {"docket": [0.05, 0.12, 0.16, 0.76], "headline": [0.28, 0.26, 0.54, 0.28], "accountability": [0.86, 0.20, 0.10, 0.60]}
+        "slots": {"docket": [0.05, 0.10, 0.90, 0.12], "headline": [0.08, 0.31, 0.56, 0.30], "accountability": [0.70, 0.28, 0.24, 0.54]}
       },
       "evidence": {
         "system_id": "evidence-public-record", "layout_family": "public-record", "coordinate_space": "body",
@@ -455,14 +455,14 @@
         "reading_order": ["layer", "headline", "verification"], "anchor_slot": "layer",
         "density": {"level": "medium", "max_items": 3}, "supported_variants": ["primary", "alternate", "dense"],
         "fallback": {"version": "renderer_role_systems_v1", "system_id": "section-system-layer"},
-        "slots": {"layer": [0.04, 0.12, 0.18, 0.76], "headline": [0.28, 0.24, 0.50, 0.30], "verification": [0.84, 0.18, 0.12, 0.64]}
+        "slots": {"layer": [0.04, 0.10, 0.44, 0.12], "headline": [0.06, 0.33, 0.58, 0.30], "verification": [0.72, 0.52, 0.24, 0.30]}
       },
       "evidence": {
         "system_id": "evidence-signal-trace", "layout_family": "signal-trace", "coordinate_space": "body",
-        "reading_order": ["evidence_0", "evidence_1", "evidence_2", "evidence_3"], "anchor_slot": "evidence_2",
+        "reading_order": ["evidence_0", "evidence_1", "evidence_2", "evidence_3"], "anchor_slot": "evidence_0",
         "density": {"level": "high", "max_items": 5}, "supported_variants": ["primary", "alternate", "dense"],
         "fallback": {"version": "renderer_role_systems_v1", "system_id": "evidence-signal-trace"},
-        "slots": {"evidence_0": [0.00, 0.00, 1.00, 0.22], "evidence_1": [0.00, 0.30, 0.29, 0.70], "evidence_2": [0.35, 0.30, 0.40, 0.70], "evidence_3": [0.81, 0.30, 0.19, 0.70]}
+        "slots": {"evidence_0": [0.38, 0.00, 0.62, 0.38], "evidence_1": [0.00, 0.52, 0.30, 0.48], "evidence_2": [0.38, 0.52, 0.28, 0.48], "evidence_3": [0.72, 0.52, 0.28, 0.48]}
       },
       "comparison": {
         "system_id": "comparison-architecture-tradeoff", "layout_family": "architecture-tradeoff", "coordinate_space": "body",

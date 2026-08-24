@@ -7,6 +7,7 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -14,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from design_tokens import available_presets
+from deck_ir import canonicalize_deck_ir, deck_ir_from_outline
 from inspect_artifact_manifest import inspect_manifest
 from office_package_hash import (
     OFFICE_PACKAGE_HASH_ALGORITHM,
@@ -892,7 +894,10 @@ def _build_workspace_command(args: argparse.Namespace, workspace: Path) -> list[
         ("qa", "--qa"),
         ("skip_render", "--skip-render"),
         ("visual_review", "--visual-review"),
+        ("require_bound_visual_review", "--require-bound-visual-review"),
         ("fail_on_visual_review_warnings", "--fail-on-visual-review-warnings"),
+        ("accessibility", "--accessibility"),
+        ("strict_accessibility", "--strict-accessibility"),
         ("fail_on_whitespace_warnings", "--fail-on-whitespace-warnings"),
         ("fail_on_planning_warnings", "--fail-on-planning-warnings"),
         ("skip_preflight", "--skip-preflight"),
@@ -915,6 +920,14 @@ def _build_workspace_command(args: argparse.Namespace, workspace: Path) -> list[
             command.append(flag)
     for data_path in getattr(args, "data_path", []) or []:
         command.extend(["--data-path", str(data_path)])
+    if getattr(args, "visual_review_receipt", None):
+        command.extend(["--visual-review-receipt", str(args.visual_review_receipt)])
+    if args.accessibility_min_body_pt != 12.0:
+        command.extend(["--accessibility-min-body-pt", str(args.accessibility_min_body_pt)])
+    if args.accessibility_min_metadata_pt != 8.0:
+        command.extend(
+            ["--accessibility-min-metadata-pt", str(args.accessibility_min_metadata_pt)]
+        )
     if args.renderer != "auto":
         command.extend(["--renderer", str(args.renderer)])
     if args.artifact_selection_out != "artifact_selections.auto.json":
@@ -946,6 +959,7 @@ def _build_report_payload(
     content_plan_path: Path,
     evidence_plan_path: Path,
     asset_plan_path: Path,
+    deck_ir_path: Path,
     build_dir: Path,
     output_pptx: Path,
     resolved_style_preset: str,
@@ -993,6 +1007,8 @@ def _build_report_payload(
             "design_warning_count",
             "visual_warning_count",
             "visual_review_warning_count",
+            "accessibility_error_count",
+            "accessibility_warning_count",
         ],
     )
     artifact_apply_summary = _json_report_summary(
@@ -1016,7 +1032,13 @@ def _build_report_payload(
         "qa": args.qa,
         "skip_render": args.skip_render,
         "visual_review": args.visual_review,
+        "visual_review_receipt": str(args.visual_review_receipt or ""),
+        "require_bound_visual_review": args.require_bound_visual_review,
         "fail_on_visual_review_warnings": args.fail_on_visual_review_warnings,
+        "accessibility": args.accessibility,
+        "strict_accessibility": args.strict_accessibility,
+        "accessibility_min_body_pt": args.accessibility_min_body_pt,
+        "accessibility_min_metadata_pt": args.accessibility_min_metadata_pt,
         "fail_on_visual_warnings": True,
         "fail_on_design_warnings": True,
         "strict_geometry": True,
@@ -1093,6 +1115,7 @@ def _build_report_payload(
     source_files.update(_artifact_dependency_source_files(workspace, artifact_manifest_path))
     outputs = {
         "pptx": _file_snapshot(workspace, output_pptx),
+        "deck_ir": _file_snapshot(workspace, deck_ir_path),
         "build_dir": _display_path(workspace, build_dir),
         "staged_manifest": _file_snapshot(workspace, staged_manifest),
         "attribution_csv": _file_snapshot(workspace, attribution_csv),
@@ -1706,8 +1729,6 @@ def _resolved_slide_header_variant(
     if slide_type in {"title", "section"}:
         return {}
     header_mode = str(slide.get("header_mode") or deck_style.get("header_mode") or "bar").strip().lower()
-    if header_mode not in {"lab-clean", "lab-card"}:
-        return {}
     if header_mode == "lab-card":
         return {
             "header_mode": header_mode,
@@ -2295,9 +2316,43 @@ def _args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--visual-review-receipt",
+        help=(
+            "Hash-bound visual_review_receipt_v1 JSON for the exact deck and "
+            "render set. Relative paths resolve inside the workspace."
+        ),
+    )
+    parser.add_argument(
+        "--require-bound-visual-review",
+        action="store_true",
+        help="Require the exact deck and rendered slides to match a passing review receipt.",
+    )
+    parser.add_argument(
         "--fail-on-visual-review-warnings",
         action="store_true",
         help="When --visual-review is set, fail QA on warning-level visual-review findings.",
+    )
+    parser.add_argument(
+        "--accessibility",
+        action="store_true",
+        help="When --qa is set, run deterministic accessibility QA and fail on errors.",
+    )
+    parser.add_argument(
+        "--strict-accessibility",
+        action="store_true",
+        help="When --qa is set, also fail on accessibility warnings.",
+    )
+    parser.add_argument(
+        "--accessibility-min-body-pt",
+        type=float,
+        default=12.0,
+        help="Minimum body type size for accessibility QA (default: 12).",
+    )
+    parser.add_argument(
+        "--accessibility-min-metadata-pt",
+        type=float,
+        default=8.0,
+        help="Minimum source/footer type size for accessibility QA (default: 8).",
     )
     parser.add_argument(
         "--fail-on-whitespace-warnings",
@@ -2516,6 +2571,10 @@ def main() -> int:
     build_cfg = contract.get("build", {})
     build_dir = workspace / manifest.get("build_dir", "build")
     build_dir.mkdir(parents=True, exist_ok=True)
+    deck_ir_path = _workspace_path(
+        workspace,
+        manifest.get("deck_ir", "build/deck_ir.json"),
+    )
     try:
         resolved_style_preset = _resolved_style_preset(
             workspace=workspace,
@@ -2644,6 +2703,33 @@ def main() -> int:
     except ValueError as exc:
         print(f"[build_workspace] {exc}", file=sys.stderr)
         return 2
+
+    ir_started = time.perf_counter()
+    try:
+        resolved_outline = _load_json(outline_path)
+        deck_ir = deck_ir_from_outline(
+            resolved_outline,
+            source_path=_display_path(workspace, outline_path),
+        )
+        _write_text_if_changed(
+            deck_ir_path,
+            canonicalize_deck_ir(deck_ir) + "\n",
+        )
+    except Exception as exc:
+        _record_step_timing(
+            step_timings,
+            step="deck_ir",
+            started=ir_started,
+            status="failed",
+        )
+        print(f"[build_workspace] Deck IR generation failed: {exc}", file=sys.stderr)
+        return 2
+    _record_step_timing(
+        step_timings,
+        step="deck_ir",
+        started=ir_started,
+        status="succeeded",
+    )
 
     planning_script = scripts_dir / "validate_planning.py"
     if planning_script.exists():
@@ -2809,12 +2895,15 @@ def main() -> int:
         ]
         try:
             step_started = time.perf_counter()
+            renderer_env = os.environ.copy()
+            renderer_env["PRESENTATION_SKILL_PYTHON"] = sys.executable
             result = subprocess.run(
                 build_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 shell=False,
+                env=renderer_env,
             )
         except FileNotFoundError as exc:
             _record_step_timing(
@@ -2900,8 +2989,32 @@ def main() -> int:
             qa_cmd.append("--fail-on-whitespace-warnings")
         if args.visual_review:
             qa_cmd.append("--run-visual-review")
+        if args.visual_review_receipt:
+            qa_cmd.extend(
+                [
+                    "--visual-review-receipt",
+                    str(_workspace_path(workspace, args.visual_review_receipt)),
+                ]
+            )
+        if args.require_bound_visual_review:
+            qa_cmd.append("--require-bound-visual-review")
         if args.fail_on_visual_review_warnings:
             qa_cmd.append("--fail-on-visual-review-warnings")
+        if args.accessibility:
+            qa_cmd.append("--accessibility")
+        if args.strict_accessibility:
+            qa_cmd.append("--strict-accessibility")
+        if args.accessibility_min_body_pt != 12.0:
+            qa_cmd.extend(
+                ["--accessibility-min-body-pt", str(args.accessibility_min_body_pt)]
+            )
+        if args.accessibility_min_metadata_pt != 8.0:
+            qa_cmd.extend(
+                [
+                    "--accessibility-min-metadata-pt",
+                    str(args.accessibility_min_metadata_pt),
+                ]
+            )
         step_started = time.perf_counter()
         qa_returncode, _qa_stdout = _run_capture_echo(qa_cmd)
         _record_step_timing(
@@ -2986,6 +3099,7 @@ def main() -> int:
             content_plan_path=content_plan_path,
             evidence_plan_path=evidence_plan_path,
             asset_plan_path=asset_plan,
+            deck_ir_path=deck_ir_path,
             build_dir=build_dir,
             output_pptx=output_pptx,
             resolved_style_preset=resolved_style_preset,

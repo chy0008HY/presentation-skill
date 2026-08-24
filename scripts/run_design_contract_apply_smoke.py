@@ -29,6 +29,7 @@ ANSWER_FIXTURES = {
 EXPECTED_RENDERER_TREATMENT_DEFAULTS = {
     "page_system": "lab-plate",
     "structural_motif": "assay-register",
+    "header_variant": "auto",
     "title_layout": "lab-plate",
     "footer_mode": "source-line",
     "chart_treatment": "minimal",

@@ -1,7 +1,7 @@
 {
   "schema": "presentation_skill_discovery_v1",
   "name": "presentation-skill",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "license": "MIT",
   "repository": "https://github.com/siril9/presentation-skill",
   "summary": "Source-first PowerPoint/PPTX generation skill for Codex, ChatGPT, and OpenAI-style agents.",
@@ -48,15 +48,20 @@
     "16 renderer content variants plus title and section slides",
     "13 style families",
     "eight full-deck role-layout grammars with bounded structural variants",
+    "automatic topic-to-preset and topic-to-composition-grammar routing",
     "descriptor-only style corpus and atom routing",
+    "versioned coordinate-free Deck IR with stable semantic object identity",
+    "preserve-by-default patching for existing PowerPoint decks",
     "chart, table, figure, lab-run-results, scientific-figure, KPI, comparison, matrix, timeline, and Mermaid flow slides",
     "generated data artifact scaffolding from local tabular data",
-    "geometry, visual, readability, placeholder, and reproducibility QA"
+    "geometry, visual, readability, placeholder, accessibility, and reproducibility QA",
+    "hash-bound human or model visual-review receipts"
   ],
   "entrypoints": {
     "skill_contract": "SKILL.md",
     "agent_prompt": "agents/openai.yaml",
     "quick_example": "examples/outline.json",
+    "benchmark_protocol": "references/benchmark_protocol.md",
     "human_discovery": "DISCOVERY.md",
     "readme": "README.md"
   },
@@ -66,13 +71,14 @@
     "decisions_sources": "examples/v0.9_decisions_sources.jpg",
     "editable_gallery": "examples/v0.9_full_deck_taste_grammar_gallery.pptx",
     "native_vs_updated": "decks/native-vs-latest-random-topics-20260623/readme_images/codex_native_vs_updated_clean_three_topics.png",
-    "release_url": "https://github.com/siril9/presentation-skill/releases/tag/v0.9.0"
+    "release_url": "https://github.com/siril9/presentation-skill/releases/tag/v0.10.0"
   },
   "default_commands": {
-    "build_example": "node scripts/build_deck_pptxgenjs.js --outline examples/outline.json --output out.pptx --style-preset executive-clinical",
-    "fast_qa": "python3 scripts/qa_gate.py --input out.pptx --outdir /tmp/pptx-qa --style-preset executive-clinical --skip-render",
-    "workspace_init": "python3 scripts/init_deck_workspace.py --workspace decks/my-deck --title \"My Deck Title\" --style-preset executive-clinical",
-    "workspace_build": "python3 scripts/build_workspace.py --workspace decks/my-deck --qa --overwrite"
+    "quick_brief": "python3 scripts/present.py brief --topic \"Deck topic\" --prompt \"Original request\" --profile auto --output quick_deck_agent_brief.json",
+    "quick_finalize": "python3 scripts/present.py finalize --outline /absolute/path/outline.json --output /absolute/path/out.pptx --qa-dir /absolute/path/qa",
+    "workspace_init": "python3 scripts/present.py init --workspace /absolute/path/decks/my-deck --title \"My Deck Title\" --prompt \"Original request\" --profile auto",
+    "workspace_build": "python3 scripts/present.py build --workspace /absolute/path/decks/my-deck",
+    "accessible_final_build": "python3 scripts/python_runtime.py scripts/build_workspace.py --workspace decks/my-deck --qa --strict-accessibility --visual-review --fail-on-visual-review-warnings --overwrite"
   },
   "do_not_use_for": [
     "pure text brainstorming with no deck artifact",
