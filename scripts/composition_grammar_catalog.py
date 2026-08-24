@@ -339,47 +339,34 @@ def compact_grammar_route(route: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-V2_ROLE_VARIANT_CANDIDATES = {
-    "title": ["title"],
-    "section": ["section"],
-    "evidence": ["cards-2", "cards-3", "stats", "timeline"],
-    "comparison": ["comparison-2col"],
-    "chart": ["chart"],
-    "table": ["table"],
-    "decision": ["matrix", "standard"],
-    "references": ["table", "matrix"],
-}
+_CAPABILITY_PATH = Path(__file__).resolve().parent.parent / "schemas" / "renderer_capabilities_v2.json"
+V2_ROLE_VARIANT_CANDIDATES = json.loads(_CAPABILITY_PATH.read_text(encoding="utf-8"))["role_variants"]
 
 
-def _normalize_agent_profile(value: str) -> str:
-    aliases = {
-        "auto": "balanced",
-        "fast": "fast",
-        "luna": "fast",
-        "balanced": "balanced",
-        "terra": "balanced",
-        "quality-first": "quality-first",
-        "sol": "quality-first",
-    }
-    return aliases.get(str(value or "auto").strip().lower(), "balanced")
-
-
-def quick_deck_agent_brief(
-    route: dict[str, Any],
-    *,
-    slide_count: int,
-    agent_profile: str = "auto",
-) -> dict[str, Any]:
-    """Return the small normal-workflow handoff a model should reason over."""
-    primary = _as_dict(route.get("primary"))
-    profile = _normalize_agent_profile(agent_profile)
-    arc = _as_dict(primary.get("narrative_arc"))
+def _starter_sequence_for_candidate(candidate: dict[str, Any], slide_count: int) -> list[dict[str, Any]]:
+    arc = _as_dict(candidate.get("narrative_arc"))
     stages = [str(value) for value in _as_list(arc.get("stages")) if str(value).strip()]
+    role_map = _as_dict(candidate.get("role_variant_map"))
+
+    def variant_for(role: str, fallback: str, map_key: str | None = None) -> str:
+        supported = [str(value) for value in V2_ROLE_VARIANT_CANDIDATES.get(role, [])]
+        requested = str(role_map.get(map_key or role) or "").strip()
+        if requested in supported:
+            return requested
+        preferred = [
+            str(value)
+            for value in _as_list(candidate.get("preferred_variants"))
+            if str(value) in supported
+        ]
+        if preferred:
+            return preferred[0]
+        return fallback if fallback in supported else supported[0]
+
     middle_blueprint = [
-        ("evidence", "stats", "establish context and stakes"),
-        ("chart", "chart", "show the decisive quantitative evidence"),
-        ("comparison", "comparison-2col", "compare alternatives or tradeoffs"),
-        ("decision", "matrix", "state the recommendation and guardrails"),
+        ("evidence", variant_for("evidence", "stats"), "establish context and stakes"),
+        ("chart", variant_for("chart", "chart", "data"), "show the decisive quantitative evidence"),
+        ("comparison", variant_for("comparison", "comparison-2col"), "compare alternatives or tradeoffs"),
+        ("decision", variant_for("decision", "matrix"), "state the recommendation and guardrails"),
         ("evidence", "timeline", "show implementation, ownership, or sequence"),
         ("evidence", "cards-2", "add one bounded proof or implication"),
         ("decision", "standard", "close an unresolved decision or action"),
@@ -414,12 +401,40 @@ def quick_deck_agent_brief(
             "intent": stages[-1] if stages else "sources and accountability",
         }
     )
+    return sequence
+
+
+def _normalize_agent_profile(value: str) -> str:
+    aliases = {
+        "auto": "balanced",
+        "fast": "fast",
+        "luna": "fast",
+        "balanced": "balanced",
+        "terra": "balanced",
+        "quality-first": "quality-first",
+        "sol": "quality-first",
+    }
+    return aliases.get(str(value or "auto").strip().lower(), "balanced")
+
+
+def quick_deck_agent_brief(
+    route: dict[str, Any],
+    *,
+    slide_count: int,
+    agent_profile: str = "auto",
+) -> dict[str, Any]:
+    """Return the small normal-workflow handoff a model should reason over."""
+    primary = _as_dict(route.get("primary"))
+    profile = _normalize_agent_profile(agent_profile)
+    arc = _as_dict(primary.get("narrative_arc"))
+    stages = [str(value) for value in _as_list(arc.get("stages")) if str(value).strip()]
     skill_root = Path(__file__).resolve().parent.parent
     runtime = skill_root / "scripts" / "python_runtime.py"
     entrypoint = skill_root / "scripts" / "present.py"
     readability_contract = {
         "min_title_pt": 28,
         "min_body_pt": 16,
+        "min_support_pt": 13,
         "min_caption_pt": 9,
         "min_footer_pt": 9,
         "min_metadata_pt": 9,
@@ -437,14 +452,15 @@ def quick_deck_agent_brief(
                 "grammar_id": candidate.get("grammar_id"),
                 "style_preset": candidate.get("style_preset"),
                 "lane": candidate.get("lane"),
-                "why": _as_list(candidate.get("selection_reasons"))[:2]
+                "why": _as_list(candidate.get("selection_reasons"))[:1]
                 or [candidate.get("description")],
                 "story_shape": {
-                    "stages": _as_list(candidate_arc.get("stages"))[:6],
-                    "reading_path": _as_list(candidate.get("reading_path"))[:5],
+                    "stages": _as_list(candidate_arc.get("stages"))[:5],
+                    "reading_path": _as_list(candidate.get("reading_path"))[:3],
                     "role_variants": _as_dict(candidate.get("role_variant_map")),
-                    "must_do": _as_list(candidate.get("invariant_moves"))[:2],
+                    "must_do": _as_list(candidate.get("invariant_moves"))[:1],
                 },
+                "starter_sequence": _starter_sequence_for_candidate(candidate, slide_count),
             }
         )
     return {
@@ -467,6 +483,7 @@ def quick_deck_agent_brief(
         "renderer": {
             "role_variants": V2_ROLE_VARIANT_CANDIDATES,
             "layout_variants": ["primary", "alternate", "dense"],
+            "role_variant_alignment": V2_ROLE_VARIANT_CANDIDATES,
         },
         "outline_contract": {
             "root_required": ["title", "deck_style", "slides"],
@@ -481,9 +498,9 @@ def quick_deck_agent_brief(
             },
             "slide_common": {
                 "type": "title | content",
-                "role": "use starter_sequence role",
-                "variant": "use starter_sequence variant",
-                "slide_intent": "use starter_sequence intent",
+                "role": "use the chosen route candidate's starter_sequence role",
+                "variant": "use the chosen route candidate's starter_sequence variant",
+                "slide_intent": "use the chosen route candidate's starter_sequence intent",
                 "title": "assertion or governing question",
                 "sources": ["stable source IDs such as S1"],
             },
@@ -503,10 +520,10 @@ def quick_deck_agent_brief(
                 "timeline": "3-5 milestones",
             },
         },
-        "starter_sequence": sequence,
         "authoring_rules": [
-            "Choose one route candidate from the evidence and audience; copy its preset and grammar into deck_style. Use the fallback when uncertain.",
-            "Adapt the sequence to the evidence; role names the editable object and slide_intent names the story job.",
+            "Choose one route candidate from the evidence and audience; copy its preset, grammar, and starter_sequence together. Use the fallback when uncertain.",
+            "Adapt the chosen candidate sequence to the evidence; role names the editable structure and slide_intent names the story job.",
+            "Use only role/variant pairs in renderer.role_variant_alignment so v2 owns the geometry.",
             "Avoid more than two consecutive slides with the same concrete variant.",
             "Shorten or split content before shrinking below the readability contract.",
             "Use the finalizer report and contact sheet for one source repair pass.",

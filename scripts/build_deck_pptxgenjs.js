@@ -684,6 +684,30 @@ const PALETTE_LIBRARY = {
     accent_secondary: '0891B2',
     line: 'D1D5DB',
   },
+  lab_monochrome_v1: {
+    bg: 'FFFFFF',
+    bg_dark: '171717',
+    surface: 'FFFFFF',
+    text: '171717',
+    text_muted: '525252',
+    accent_primary: '171717',
+    accent_secondary: 'B42318',
+    line: 'D4D4D4',
+    title_subtitle_color: 'E5E5E5',
+    section_subtitle_color: 'E5E5E5',
+  },
+  journal_monochrome_v1: {
+    bg: 'FFFFFF',
+    bg_dark: '202020',
+    surface: 'FFFFFF',
+    text: '111111',
+    text_muted: '525252',
+    accent_primary: '111111',
+    accent_secondary: '315A74',
+    line: 'D9D9D9',
+    title_subtitle_color: 'E8ECEF',
+    section_subtitle_color: 'E8ECEF',
+  },
 };
 
 const PRESET_TREATMENTS = {

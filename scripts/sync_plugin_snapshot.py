@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
 import shutil
+import tempfile
 from pathlib import Path
 
 
@@ -47,6 +50,7 @@ SCRIPT_DEVELOPMENT_ONLY = {
 }
 
 SCREENSHOTS = {
+    "v0.11_monochrome_lab_ab.jpg": REPO / "examples/v0.11_monochrome_lab_ab.jpg",
     "v0.9_narrative_structures.jpg": REPO / "examples/v0.9_narrative_structures.jpg",
     "v0.9_evidence_data_structures.jpg": REPO / "examples/v0.9_evidence_data_structures.jpg",
     "v0.9_decisions_sources.jpg": REPO / "examples/v0.9_decisions_sources.jpg",
@@ -82,27 +86,27 @@ def _ignore(_dir: str, names: list[str]) -> set[str]:
     return ignored
 
 
-def _copy_file(relative_path: str) -> None:
+def _copy_file(relative_path: str, skill_root: Path = PLUGIN_SKILL_ROOT) -> None:
     src = REPO / relative_path
     if not src.is_file():
         raise FileNotFoundError(src)
-    dst = PLUGIN_SKILL_ROOT / relative_path
+    dst = skill_root / relative_path
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
 
 
-def _copy_tree(relative_path: str) -> None:
+def _copy_tree(relative_path: str, skill_root: Path = PLUGIN_SKILL_ROOT) -> None:
     src = REPO / relative_path
     if not src.is_dir():
         raise FileNotFoundError(src)
-    dst = PLUGIN_SKILL_ROOT / relative_path
+    dst = skill_root / relative_path
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(src, dst, ignore=_ignore)
 
 
-def _write_runtime_package_manifest() -> None:
-    package_path = PLUGIN_SKILL_ROOT / "package.json"
+def _write_runtime_package_manifest(skill_root: Path = PLUGIN_SKILL_ROOT) -> None:
+    package_path = skill_root / "package.json"
     payload = json.loads(package_path.read_text(encoding="utf-8"))
     payload["scripts"] = {
         "setup:python": "python3 scripts/runtime_doctor.py --bootstrap",
@@ -116,16 +120,63 @@ def _write_runtime_package_manifest() -> None:
     )
 
 
-def main() -> int:
-    if PLUGIN_SKILL_ROOT.exists():
-        shutil.rmtree(PLUGIN_SKILL_ROOT)
-    PLUGIN_SKILL_ROOT.mkdir(parents=True, exist_ok=True)
+def _sync_skill(skill_root: Path) -> None:
+    if skill_root.exists():
+        shutil.rmtree(skill_root)
+    skill_root.mkdir(parents=True, exist_ok=True)
 
     for relative_path in FILES:
-        _copy_file(relative_path)
+        _copy_file(relative_path, skill_root)
     for relative_path in DIRECTORIES:
-        _copy_tree(relative_path)
-    _write_runtime_package_manifest()
+        _copy_tree(relative_path, skill_root)
+    _write_runtime_package_manifest(skill_root)
+
+
+def _tree_hashes(root: Path) -> dict[str, str]:
+    if not root.is_dir():
+        return {}
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _check_snapshot() -> int:
+    with tempfile.TemporaryDirectory(prefix="presentation-skill-plugin-check-") as temporary:
+        expected_root = Path(temporary) / "skill"
+        _sync_skill(expected_root)
+        expected = _tree_hashes(expected_root)
+    actual = _tree_hashes(PLUGIN_SKILL_ROOT)
+    missing = sorted(set(expected) - set(actual))
+    extra = sorted(set(actual) - set(expected))
+    changed = sorted(path for path in set(expected).intersection(actual) if expected[path] != actual[path])
+    asset_failures = [
+        name
+        for name, source in SCREENSHOTS.items()
+        if not (PLUGIN_ASSETS / name).is_file()
+        or hashlib.sha256(source.read_bytes()).digest()
+        != hashlib.sha256((PLUGIN_ASSETS / name).read_bytes()).digest()
+    ]
+    payload = {
+        "passed": not (missing or extra or changed or asset_failures),
+        "missing": missing,
+        "extra": extra,
+        "changed": changed,
+        "asset_failures": asset_failures,
+    }
+    print(json.dumps(payload, indent=2))
+    return 0 if payload["passed"] else 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="Verify parity without writing the plugin snapshot.")
+    args = parser.parse_args()
+    if args.check:
+        return _check_snapshot()
+
+    _sync_skill(PLUGIN_SKILL_ROOT)
 
     PLUGIN_ASSETS.mkdir(parents=True, exist_ok=True)
     for name, src in SCREENSHOTS.items():

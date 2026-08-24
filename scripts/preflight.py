@@ -1374,6 +1374,53 @@ _EVIDENCE_ANCHOR_VARIANTS = {
     "timeline",
 }
 
+_RENDERER_CAPABILITIES_V2 = json.loads(
+    (
+        Path(__file__).resolve().parent.parent
+        / "schemas"
+        / "renderer_capabilities_v2.json"
+    ).read_text(encoding="utf-8")
+)["role_variants"]
+_PREFERRED_ROLES_BY_VARIANT: dict[str, set[str]] = {}
+for _role, _variants in _RENDERER_CAPABILITIES_V2.items():
+    for _variant in _variants:
+        _PREFERRED_ROLES_BY_VARIANT.setdefault(str(_variant), set()).add(str(_role))
+
+
+def _check_role_variant_alignment(slide: dict[str, Any], idx: int) -> list[dict[str, Any]]:
+    role = str(slide.get("role") or "").strip().lower()
+    variant = str(slide.get("variant") or "").strip().lower()
+    preferred = _PREFERRED_ROLES_BY_VARIANT.get(variant)
+    if not role or not variant or (preferred and role in preferred):
+        return []
+    if preferred:
+        expected = " or ".join(sorted(preferred))
+        resolution = f"Set `role` to {expected}, or choose a variant supported by the current role."
+    else:
+        supported = [str(value) for value in _RENDERER_CAPABILITIES_V2.get(role, [])]
+        if not supported:
+            return []
+        expected = role
+        resolution = (
+            f"Choose one of the v2 variants supported by role={role!r}: "
+            + ", ".join(supported)
+            + "."
+        )
+    return [
+        _make_issue(
+            idx,
+            "role_variant_contract_mismatch",
+            "warning",
+            (
+                f"role={role!r} and variant={variant!r} do not use the same v2 "
+                f"geometry contract; preferred role is {expected}."
+            ),
+            (
+                f"{resolution} Keep `slide_intent` for the narrative job."
+            ),
+        )
+    ]
+
 
 def _nonempty_list(value: Any) -> bool:
     return isinstance(value, list) and any(str(item).strip() for item in value)
@@ -3510,6 +3557,7 @@ def lint_outline(
             )
         )
         issues.extend(_check_variant_required(slide, idx, outline_parent, context))
+        issues.extend(_check_role_variant_alignment(slide, idx))
         issues.extend(_check_evidence_anchor(slide, idx))
         issues.extend(_check_assets(slide, idx, outline_parent, context))
         issues.extend(

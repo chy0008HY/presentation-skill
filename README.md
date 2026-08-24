@@ -50,6 +50,10 @@ Skill name: `presentation-skill`. Aliases for fuzzy skill matching and search: `
 
 ## See it
 
+![v0.11 monochrome lab-report A/B](examples/v0.11_monochrome_lab_ab.jpg)
+
+*The same paper synthesis rendered as an assay notebook and a journal appendix. Content, data, and sources are frozen; only the grammar, palette, typography, and density system change.*
+
 ![v0.9 evidence, chart, and table role-layout systems](examples/v0.9_evidence_data_structures.jpg)
 
 The same evidence, native chart, and editable table take eight different reading paths. Color is not counted by the structural gate.
@@ -78,7 +82,7 @@ npx skills add https://github.com/siril9/presentation-skill \
 Add this repo as a Codex plugin marketplace, then open `/plugins` in Codex and install `presentation-skill` from the **Presentation Skill** marketplace:
 
 ```bash
-codex plugin marketplace add siril9/presentation-skill --ref v0.10.0
+codex plugin marketplace add siril9/presentation-skill --ref v0.11.0
 ```
 
 For local development against a checkout:
@@ -216,6 +220,7 @@ Copy-ready community posts and curation-request text live in [`docs/PROMOTION.md
 
 ## Releases
 
+- [`v0.11.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.11.0) — monochrome lab and journal systems, candidate-coherent v2 routing, semantic subtitle sizing, non-inventive table readouts, cleaner title stages, plugin parity checks, and a two-deck scientific proof.
 - [`v0.10.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.10.0) — lightweight Luna/Terra/Sol routing, a single public CLI, compact default workspaces, warning-aware preflight handling, content-aware title fitting, and lean plugin/npm packaging.
 - [`v0.9.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.9.0) — full-deck role-layout compiler, eight structural systems per role, explicit v1-to-v2 workspace migration, typed readiness actions, and a 64-slide editable proof gallery.
 - [`v0.8.0`](https://github.com/siril9/presentation-skill/releases/tag/v0.8.0) — Codex plugin packaging, repo marketplace entry, synced plugin skill snapshot, and marketplace install docs.

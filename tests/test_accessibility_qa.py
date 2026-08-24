@@ -257,6 +257,59 @@ class AccessibilityQATests(unittest.TestCase):
         self.assertEqual(report["warning_count"], 0)
         self.assertEqual(report["findings"], [])
 
+    def test_named_slide_subtitle_uses_support_floor(self) -> None:
+        path = self.root / "subtitle-support.pptx"
+        presentation = self._presentation()
+        slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+        _add_title(slide, "Evidence summary")
+        _add_text(
+            slide,
+            "Supporting context remains compact without becoming body copy.",
+            left=0.7,
+            top=1.05,
+            width=8.4,
+            height=0.4,
+            font_pt=13,
+            name="support:slide-subtitle",
+        )
+        presentation.save(path)
+
+        report = audit_presentation(
+            path,
+            min_body_pt=16,
+            min_support_pt=13,
+            min_metadata_pt=9,
+            strict=True,
+        )
+
+        self.assertTrue(report["passed"], report["findings"])
+        self.assertEqual(report["findings"], [])
+
+        too_small = self.root / "subtitle-support-small.pptx"
+        presentation = self._presentation()
+        slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+        _add_title(slide, "Evidence summary")
+        _add_text(
+            slide,
+            "Supporting context should not collapse to citation size.",
+            left=0.7,
+            top=1.05,
+            width=8.4,
+            height=0.4,
+            font_pt=9,
+            name="support:slide-subtitle",
+        )
+        presentation.save(too_small)
+        report = audit_presentation(
+            too_small,
+            min_body_pt=16,
+            min_support_pt=13,
+            min_metadata_pt=9,
+            strict=True,
+        )
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["findings"][0]["details"]["role"], "support")
+
     def test_file_paths_are_not_accepted_as_meaningful_alt_text(self) -> None:
         self.assertTrue(_is_generic_alt_text("figure.png"))
         self.assertTrue(_is_generic_alt_text("/tmp/deck-assets/figure.png"))

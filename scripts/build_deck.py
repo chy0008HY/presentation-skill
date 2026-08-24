@@ -67,6 +67,26 @@ PALETTE_LIBRARY: dict[str, dict[str, str]] = {
         "accent_secondary": "0891B2",
         "line": "D1D5DB",
     },
+    "lab_monochrome_v1": {
+        "bg_primary": "FFFFFF",
+        "bg_dark": "171717",
+        "surface": "FFFFFF",
+        "text_primary": "171717",
+        "text_muted": "525252",
+        "accent_primary": "171717",
+        "accent_secondary": "B42318",
+        "line": "D4D4D4",
+    },
+    "journal_monochrome_v1": {
+        "bg_primary": "FFFFFF",
+        "bg_dark": "202020",
+        "surface": "FFFFFF",
+        "text_primary": "111111",
+        "text_muted": "525252",
+        "accent_primary": "111111",
+        "accent_secondary": "315A74",
+        "line": "D9D9D9",
+    },
 }
 
 _STAGED_ASSET_LOOKUP: dict[str, dict[str, str]] = {}

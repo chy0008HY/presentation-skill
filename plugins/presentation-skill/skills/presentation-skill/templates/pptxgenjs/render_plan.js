@@ -4,6 +4,7 @@ const {
   CONTRACT_VERSION,
   roleLayoutContract,
 } = require('./role_layout_contracts.js');
+const RENDERER_CAPABILITIES_V2 = require('../../schemas/renderer_capabilities_v2.json');
 
 const V1_CONTRACT_VERSION = 'renderer_role_systems_v1';
 
@@ -72,22 +73,14 @@ const RENDERER_ADAPTERS = Object.freeze({
 // These are the only combinations whose current renderer actually consumes
 // the selected v2 role contract. A visual variant does not imply one of these
 // roles; the pair is considered only after semantic role resolution.
-const SUPPORTED_VARIANT_ROLE_ADAPTERS = Object.freeze({
-  'title:title': 'renderTitle:title',
-  'section:section': 'renderSection:section',
-  'standard:decision': 'renderStandard:decision',
-  'standard:references': 'renderStandard:references',
-  'cards-2:evidence': 'renderCards2:evidence',
-  'cards-3:evidence': 'renderCards3:evidence',
-  'timeline:evidence': 'renderTimeline:evidence',
-  'stats:evidence': 'renderStats:evidence',
-  'table:table': 'renderTable:table',
-  'table:references': 'renderTable:references',
-  'comparison-2col:comparison': 'renderComparison2col:comparison',
-  'matrix:decision': 'renderMatrix:decision',
-  'matrix:references': 'renderMatrix:references',
-  'chart:chart': 'renderChart:chart',
-});
+const SUPPORTED_VARIANT_ROLE_ADAPTERS = Object.freeze(Object.fromEntries(
+  Object.entries(RENDERER_CAPABILITIES_V2.role_variants || {}).flatMap(([role, variants]) => (
+    variants.map((variant) => [
+      `${variant}:${role}`,
+      `${RENDERER_ADAPTERS[variant]}:${role}`,
+    ])
+  )),
+));
 
 const ROLE_ALIASES = Object.freeze({
   cover: 'title',

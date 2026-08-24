@@ -9,6 +9,7 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -101,10 +102,16 @@ def _completion_status(records: list[dict[str, Any]], qa_dir: Path) -> dict[str,
     }
 
 
-def _thresholds(outline: dict[str, Any], body_override: float | None, metadata_override: float | None) -> tuple[float, float]:
+def _thresholds(
+    outline: dict[str, Any],
+    body_override: float | None,
+    support_override: float | None,
+    metadata_override: float | None,
+) -> tuple[float, float, float]:
     style = outline.get("deck_style") if isinstance(outline.get("deck_style"), dict) else {}
     contract = style.get("readability_contract") if isinstance(style.get("readability_contract"), dict) else {}
     body = body_override if body_override is not None else float(contract.get("min_body_pt", 16))
+    support = support_override if support_override is not None else float(contract.get("min_support_pt", 13))
     metadata = metadata_override
     if metadata is None:
         metadata = float(
@@ -113,7 +120,7 @@ def _thresholds(outline: dict[str, Any], body_override: float | None, metadata_o
                 contract.get("min_footer_pt", contract.get("min_caption_pt", 9)),
             )
         )
-    return body, metadata
+    return body, support, metadata
 
 
 def _resolve_style_preset(outline: dict[str, Any], requested: str) -> tuple[str, str]:
@@ -156,6 +163,7 @@ def _run(
     *,
     accepted_returncodes: tuple[int, ...] = (0,),
 ) -> bool:
+    started = time.perf_counter()
     completed = subprocess.run(
         command,
         cwd=ROOT,
@@ -174,6 +182,7 @@ def _run(
             "returncode": completed.returncode,
             "accepted_returncodes": list(accepted_returncodes),
             "accepted": completed.returncode in accepted_returncodes,
+            "duration_seconds": round(time.perf_counter() - started, 3),
         }
     )
     return completed.returncode in accepted_returncodes
@@ -187,7 +196,7 @@ def _write_receipt(
     qa_dir: Path,
     style_preset: str,
     style_resolution_basis: str,
-    thresholds: tuple[float, float],
+    thresholds: tuple[float, float, float],
     records: list[dict[str, Any]],
 ) -> dict[str, Any]:
     passed = bool(records) and all(bool(record.get("accepted", False)) for record in records)
@@ -205,11 +214,16 @@ def _write_receipt(
         "style_resolution_basis": style_resolution_basis,
         "readability": {
             "min_body_pt": thresholds[0],
-            "min_metadata_pt": thresholds[1],
+            "min_support_pt": thresholds[1],
+            "min_metadata_pt": thresholds[2],
         },
         "qa_dir": str(qa_dir),
         "qa_report": str(qa_dir / "qa_report.json"),
         "contact_sheet": str(qa_dir / "visual_review" / "contact_sheet.jpg"),
+        "total_duration_seconds": round(
+            sum(float(record.get("duration_seconds", 0) or 0) for record in records),
+            3,
+        ),
         **completion,
         "stages": records,
     }
@@ -230,6 +244,7 @@ def main() -> int:
     parser.add_argument("--qa-dir", type=Path)
     parser.add_argument("--asset-root", type=Path)
     parser.add_argument("--min-body-pt", type=float)
+    parser.add_argument("--min-support-pt", type=float)
     parser.add_argument("--min-metadata-pt", type=float)
     parser.add_argument(
         "--strict-preflight-warnings",
@@ -245,7 +260,12 @@ def main() -> int:
     records: list[dict[str, Any]] = []
     try:
         outline_payload = _load_outline(outline)
-        thresholds = _thresholds(outline_payload, args.min_body_pt, args.min_metadata_pt)
+        thresholds = _thresholds(
+            outline_payload,
+            args.min_body_pt,
+            args.min_support_pt,
+            args.min_metadata_pt,
+        )
         style_preset, style_resolution_basis = _resolve_style_preset(
             outline_payload,
             args.style_preset,
@@ -304,8 +324,10 @@ def main() -> int:
                 "--strict-accessibility",
                 "--accessibility-min-body-pt",
                 str(thresholds[0]),
-                "--accessibility-min-metadata-pt",
+                "--accessibility-min-support-pt",
                 str(thresholds[1]),
+                "--accessibility-min-metadata-pt",
+                str(thresholds[2]),
                 "--skip-manual-review",
             ],
             (0,),

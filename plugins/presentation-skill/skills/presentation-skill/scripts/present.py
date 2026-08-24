@@ -29,7 +29,8 @@ def _run(script: str, arguments: list[str]) -> int:
 
 
 def _write_or_print(payload: dict[str, Any], output: Path | None) -> None:
-    encoded = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+    # This handoff is consumed by a model, so avoid spending context on JSON whitespace.
+    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
     if output is None:
         print(encoded, end="")
         return

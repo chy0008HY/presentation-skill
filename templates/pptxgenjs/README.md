@@ -100,6 +100,11 @@ The renderer exports 13 canonical presets: `arctic-minimal`,
 `warm-terracotta`. At most two presets share a composition grammar; the preset
 controls its bounded palette, typography, density, and treatment interpretation.
 
+For scientific work that should read like print rather than a colored template,
+use `lab_monochrome_v1` with `lab-report` or `journal_monochrome_v1` with
+`paper-journal`. Both keep the page white and reserve their secondary accent for
+semantic emphasis, so structure still comes from the selected grammar.
+
 Each returns `{ bg, bg_dark, surface, text, text_muted, accent_primary,
 accent_secondary, line, font_heading, font_body }`. `surface` and `line` are
 provided as convenience tokens that several slide families use but are not

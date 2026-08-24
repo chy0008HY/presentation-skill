@@ -155,11 +155,16 @@ Maintain these invariants:
   variation. Do not place arbitrary coordinates in `outline.json`.
 - Keep one grammar coherent across the deck. Borrow at most two isolated
   treatments when the content shape benefits.
+- For a visual A/B, freeze one outline and vary only `deck_style`; this exposes
+  real grammar differences without letting content changes bias the comparison.
+- Treat auxiliary title-stage anchors as content slots, not decoration. Leave
+  them absent unless the outline supplies a value or asset.
 
 Readable defaults for ordinary delivery:
 
 - titles at least 28 pt;
 - body text at least 16 pt;
+- supporting subtitles at least 13 pt;
 - captions, sources, and metadata at least 9 pt;
 - no more than two title lines;
 - shorten, split, or convert prose into evidence objects before shrinking.

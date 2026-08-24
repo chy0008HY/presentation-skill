@@ -22,6 +22,7 @@ class FinalizeQuickDeckTests(unittest.TestCase):
             )
         self.assertTrue(accepted)
         self.assertTrue(records[0]["accepted"])
+        self.assertGreaterEqual(float(records[0]["duration_seconds"]), 0.0)
         with tempfile.TemporaryDirectory() as tmp:
             status = _completion_status(records, Path(tmp))
         self.assertEqual(status["failure_category"], "passed")
@@ -42,7 +43,7 @@ class FinalizeQuickDeckTests(unittest.TestCase):
         self.assertEqual(status["failure_category"], "outline_preflight")
 
     def test_quick_defaults_preserve_readability(self) -> None:
-        self.assertEqual(_thresholds({}, None, None), (16.0, 9.0))
+        self.assertEqual(_thresholds({}, None, None, None), (16.0, 13.0, 9.0))
 
 
 if __name__ == "__main__":

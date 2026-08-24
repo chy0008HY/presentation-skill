@@ -9,6 +9,8 @@ import unittest
 from collections import Counter
 from pathlib import Path
 
+from pptx import Presentation
+
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
@@ -16,7 +18,9 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 from composition_grammar_catalog import (  # noqa: E402
+    V2_ROLE_VARIANT_CANDIDATES,
     build_composition_grammar_catalog,
+    quick_deck_agent_brief,
     route_composition_grammars,
     validate_composition_grammar_catalog,
 )
@@ -42,6 +46,7 @@ from role_layout_contracts import (  # noqa: E402
     renderer_role_contracts_for_preset,
     validate_renderer_role_contracts_v2,
 )
+from preflight import _check_role_variant_alignment  # noqa: E402
 
 
 EXPECTED_GRAMMARS = {
@@ -57,6 +62,96 @@ EXPECTED_GRAMMARS = {
 
 
 class TasteGrammarCatalogTests(unittest.TestCase):
+    def test_preflight_warns_when_role_bypasses_variant_contract(self) -> None:
+        issues = _check_role_variant_alignment(
+            {"role": "evidence", "variant": "matrix"},
+            3,
+        )
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0]["rule"], "role_variant_contract_mismatch")
+        self.assertEqual(issues[0]["severity"], "warning")
+
+        self.assertFalse(
+            _check_role_variant_alignment(
+                {"role": "decision", "variant": "matrix"},
+                3,
+            )
+        )
+        unsupported = _check_role_variant_alignment(
+            {"role": "decision", "variant": "kpi-hero"},
+            4,
+        )
+        self.assertEqual(len(unsupported), 1)
+        self.assertIn("matrix", unsupported[0]["suggested_fix"])
+
+    def test_policy_table_does_not_invent_a_readout(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            outline = root / "outline.json"
+            output = root / "deck.pptx"
+            outline.write_text(
+                json.dumps(
+                    {
+                        "title": "Policy table",
+                        "deck_style": {
+                            "style_preset": "warm-terracotta",
+                            "composition_grammar": "policy-public-docket",
+                            "readability_contract": {"min_body_pt": 16, "min_metadata_pt": 9},
+                        },
+                        "slides": [
+                            {"type": "title", "role": "title", "title": "Policy table"},
+                            {
+                                "type": "content",
+                                "role": "table",
+                                "variant": "table",
+                                "title": "Select sites",
+                                "headers": ["Site", "Risk", "Call"],
+                                "rows": [["Northside", "High", "Launch"], ["Central", "Moderate", "Launch"]],
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "scripts" / "build_deck_pptxgenjs.js"),
+                    "--outline",
+                    str(outline),
+                    "--output",
+                    str(output),
+                    "--style-preset",
+                    "warm-terracotta",
+                ],
+                cwd=ROOT,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            slide = Presentation(output).slides[1]
+            text = "\n".join(shape.text for shape in slide.shapes if getattr(shape, "has_text_frame", False))
+            self.assertNotIn("Northside: High", text)
+
+    def test_every_quick_brief_candidate_keeps_its_own_v2_sequence(self) -> None:
+        route = route_composition_grammars(
+            topic="urban heat resilience",
+            user_prompt="public evidence, options, implementation, and sources",
+            limit=3,
+        )
+        brief = quick_deck_agent_brief(route, slide_count=8, agent_profile="quality-first")
+        candidates = brief["route_candidates"]
+        self.assertGreaterEqual(len(candidates), 2)
+        for candidate in candidates:
+            self.assertEqual(len(candidate["starter_sequence"]), 8)
+            for slide in candidate["starter_sequence"]:
+                self.assertIn(slide["variant"], V2_ROLE_VARIANT_CANDIDATES[slide["role"]])
+        self.assertNotEqual(
+            candidates[0]["starter_sequence"][1]["intent"],
+            candidates[1]["starter_sequence"][1]["intent"],
+        )
+
     def test_catalog_cardinality_and_preset_distribution(self) -> None:
         taste_summary = validate_taste_grammar_catalog()
         composition_summary = validate_composition_grammar_catalog()

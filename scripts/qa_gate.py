@@ -298,6 +298,12 @@ def _args() -> argparse.Namespace:
         help="Minimum body type size for accessibility QA (default: 12).",
     )
     parser.add_argument(
+        "--accessibility-min-support-pt",
+        type=float,
+        default=13.0,
+        help="Minimum supporting/subtitle type size for accessibility QA (default: 13).",
+    )
+    parser.add_argument(
         "--accessibility-min-metadata-pt",
         type=float,
         default=8.0,
@@ -432,6 +438,8 @@ def main() -> int:
             str(accessibility_report),
             "--min-body-pt",
             str(args.accessibility_min_body_pt),
+            "--min-support-pt",
+            str(args.accessibility_min_support_pt),
             "--min-metadata-pt",
             str(args.accessibility_min_metadata_pt),
         ]

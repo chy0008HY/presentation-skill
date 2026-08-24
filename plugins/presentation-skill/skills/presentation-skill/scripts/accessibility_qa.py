@@ -23,6 +23,7 @@ EXIT_FINDINGS = 1
 EXIT_OPERATIONAL_ERROR = 2
 
 DEFAULT_MIN_BODY_PT = 12.0
+DEFAULT_MIN_SUPPORT_PT = 13.0
 DEFAULT_MIN_METADATA_PT = 8.0
 LARGE_VISUAL_AREA_RATIO = 0.20
 
@@ -82,6 +83,12 @@ _METADATA_MARKERS = (
     "note",
     "page number",
     "source",
+)
+_SUPPORT_MARKERS = (
+    "slide subtitle",
+    "slide-subtitle",
+    "support",
+    "subtitle",
 )
 _NUMBER_NAME_MARKERS = (
     "decorative number",
@@ -362,6 +369,8 @@ def _is_decorative_number(shape: Any, text: str, slide_width: int, slide_height:
 def _text_role(shape: Any, text: str, slide_height: int) -> str:
     normalized_name = _normalize_signal(_shape_metadata(shape)["name"])
     normalized_text = _normalize_signal(text)
+    if any(marker in normalized_name for marker in _SUPPORT_MARKERS):
+        return "support"
     if any(marker in normalized_name for marker in _METADATA_MARKERS):
         return "metadata"
     if normalized_text.startswith(
@@ -446,12 +455,13 @@ def audit_presentation(
     input_path: str | Path,
     *,
     min_body_pt: float = DEFAULT_MIN_BODY_PT,
+    min_support_pt: float = DEFAULT_MIN_SUPPORT_PT,
     min_metadata_pt: float = DEFAULT_MIN_METADATA_PT,
     strict: bool = False,
 ) -> dict[str, Any]:
     """Audit ``input_path`` without modifying it and return a stable JSON-ready report."""
 
-    if min_body_pt <= 0 or min_metadata_pt <= 0:
+    if min_body_pt <= 0 or min_support_pt <= 0 or min_metadata_pt <= 0:
         raise ValueError("minimum font sizes must be greater than zero")
 
     pptx_path = Path(input_path).expanduser().resolve(strict=True)
@@ -582,7 +592,11 @@ def audit_presentation(
             role = "body" if getattr(shape, "has_table", False) else _text_role(
                 shape, text, slide_height
             )
-            minimum = min_body_pt if role == "body" else min_metadata_pt
+            minimum = {
+                "body": min_body_pt,
+                "support": min_support_pt,
+                "metadata": min_metadata_pt,
+            }[role]
             observed = min(sizes)
             if observed >= minimum:
                 continue
@@ -615,6 +629,7 @@ def audit_presentation(
         "strict": bool(strict),
         "thresholds": {
             "min_body_pt": float(min_body_pt),
+            "min_support_pt": float(min_support_pt),
             "min_metadata_pt": float(min_metadata_pt),
             "large_visual_area_ratio": LARGE_VISUAL_AREA_RATIO,
         },
@@ -632,6 +647,7 @@ def _operational_error_report(
     exc: Exception,
     strict: bool,
     min_body_pt: float,
+    min_support_pt: float,
     min_metadata_pt: float,
 ) -> dict[str, Any]:
     path = str(Path(input_path).expanduser().resolve())
@@ -654,6 +670,7 @@ def _operational_error_report(
         "strict": bool(strict),
         "thresholds": {
             "min_body_pt": float(min_body_pt),
+            "min_support_pt": float(min_support_pt),
             "min_metadata_pt": float(min_metadata_pt),
             "large_visual_area_ratio": LARGE_VISUAL_AREA_RATIO,
         },
@@ -683,6 +700,12 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Minimum body text size (default: {DEFAULT_MIN_BODY_PT:g})",
     )
     parser.add_argument(
+        "--min-support-pt",
+        type=float,
+        default=DEFAULT_MIN_SUPPORT_PT,
+        help=f"Minimum supporting/subtitle text size (default: {DEFAULT_MIN_SUPPORT_PT:g})",
+    )
+    parser.add_argument(
         "--min-metadata-pt",
         type=float,
         default=DEFAULT_MIN_METADATA_PT,
@@ -702,6 +725,7 @@ def main(argv: list[str] | None = None) -> int:
         report = audit_presentation(
             args.input,
             min_body_pt=args.min_body_pt,
+            min_support_pt=args.min_support_pt,
             min_metadata_pt=args.min_metadata_pt,
             strict=args.strict,
         )
@@ -719,6 +743,7 @@ def main(argv: list[str] | None = None) -> int:
             exc,
             args.strict,
             args.min_body_pt,
+            args.min_support_pt,
             args.min_metadata_pt,
         )
         output = _serialize_report(report)
