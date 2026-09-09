@@ -15,6 +15,8 @@ evidence, and design judgment; the skill owns deterministic rendering and QA.
   a generated PPTX when source exists.
 - Keep text, charts, tables, diagrams, and figures editable where practical.
 - Use the selected grammar as a design system, not a fixed slide sequence.
+- For quality-first, high-stakes, and comparison work, gate the final render on
+  separate content, design, and coherence judgments.
 - Fix source and rebuild until geometry, readability, placeholders, and rendered
   visual review pass.
 - Do not copy proprietary slides, logos, wording, or distinctive geometry.
@@ -213,6 +215,20 @@ Visual review should search for defects: clipped text, weak contrast, awkward
 empty regions, crowded edges, tiny labels, inconsistent alignment, repeated
 grammar, and unreadable sources. Fix source and rebuild.
 
+For quality-first, public, research/teaching, or generator-comparison decks,
+read `references/integrated_generation_loop.md`, write an evidence-backed
+`presentation_triad_review_v1` packet, and run:
+
+```bash
+python3 scripts/triad_review.py \
+  --input /absolute/path/triad_review.json \
+  --output /absolute/path/triad_review_decision.json \
+  --fail-on-block
+```
+
+Repair the weakest blocking dimension in source and rebuild. Do not deliver
+while any dimension is below threshold or an error finding remains unresolved.
+
 If rendering is unavailable in the execution environment, preserve the built
 deck and static QA report, record the deferred render stage in the receipt, and
 do not probe unrelated Office apps.
@@ -231,6 +247,8 @@ Read only what the current task needs:
 - `references/composition_grammar_catalog.md`: structural grammar routing
 - `references/pptxgenjs.md`: renderer development only
 - `references/visual_qa_prompt.md`: independent rendered review
+- `references/integrated_generation_loop.md`: editable core, design routing,
+  and content/design/coherence delivery gate
 - `references/benchmark_protocol.md`: fair comparison or superiority claims
 
 Do not preload all references, presets, or corpus records.
@@ -243,6 +261,7 @@ After changing runtime behavior, run:
 npm run check:python
 npm run check:node
 npm run check:present
+npm run check:triad-review
 npm run check:focused
 ```
 
